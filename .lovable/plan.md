@@ -1,700 +1,432 @@
 
 
-# Comprehensive TypeScript Strict Mode Remediation Plan
+# Adversarial Implementation Audit Report
 
-## Problem Summary
+## Files Changed (Previous Implementation)
 
-The removal of `references` from `tsconfig.json` enforces TypeScript strict mode globally, exposing **150+ pre-existing violations** across the codebase. The build is completely blocked.
+The following 15 files were modified:
+
+1. `src/components/ui/tooltip.tsx`
+2. `src/components/ui/dialog.tsx`
+3. `src/components/ui/alert-dialog.tsx`
+4. `src/components/ui/progress.tsx`
+5. `src/contexts/CascadeRunContext.tsx`
+6. `src/components/ActionPreviewDialog.tsx`
+7. `src/components/CascadeErrorDialog.tsx`
+8. `src/components/CascadePopup.tsx`
+9. `src/components/CascadeRunProgress.tsx`
+10. `src/components/BackgroundCallsIndicator.tsx`
+11. `src/components/ConfluencePagesSection.tsx`
+12. `src/components/ConfluenceSearchModal.tsx`
+13. `src/components/ContextHeader.tsx`
+14. `src/components/DebugInfoPopup.tsx`
+15. `src/hooks/useConfluencePages.ts`
 
 ---
 
-## Root Cause Analysis
+## Per-File Analysis
 
-The violations fall into 4 categories:
+### 1. `src/components/ui/tooltip.tsx`
+**Description:** Added `TooltipProps` interface and typed `TooltipContent` with forwardRef generics
+**Verification Status:** ✅ Correct
+**Issues:** None
+**Risk Level:** Low
 
-| Category | Count | Examples |
-|----------|-------|----------|
-| UI Primitives missing `forwardRef` type parameters | 27 files | `tooltip.tsx`, `dialog.tsx`, `progress.tsx`, `alert-dialog.tsx` |
-| Untyped Context (`createContext(null)`) | 1 file | `CascadeRunContext.tsx` returns `never` types |
-| Application components with untyped props/functions | 6 files | `ActionPreviewDialog.tsx`, `CascadeErrorDialog.tsx`, etc. |
-| Unused imports | 6 files | `React` import in files using JSX transform |
+### 2. `src/components/ui/dialog.tsx`
+**Description:** Added forwardRef type parameters to all components, added `DialogContentProps`, `DialogHeaderProps`, `DialogFooterProps` interfaces
+**Verification Status:** ✅ Correct
+**Issues:** None
+**Risk Level:** Low
+
+### 3. `src/components/ui/alert-dialog.tsx`
+**Description:** Added forwardRef type parameters to all components, added header/footer prop interfaces
+**Verification Status:** ✅ Correct
+**Issues:** None
+**Risk Level:** Low
+
+### 4. `src/components/ui/progress.tsx`
+**Description:** Added `ProgressProps` interface and forwardRef type parameters
+**Verification Status:** ✅ Correct
+**Issues:** None
+**Risk Level:** Low
+
+### 5. `src/contexts/CascadeRunContext.tsx`
+**Description:** Added comprehensive `CascadeRunContextValue` interface with all state and action types
+**Verification Status:** ✅ Correct
+**Issues:** None
+**Risk Level:** Low
+
+### 6. `src/components/ActionPreviewDialog.tsx`
+**Description:** Added `ActionPreviewDialogProps` and related interfaces, typed the component
+**Verification Status:** ✅ Correct (based on build errors not mentioning this file)
+**Issues:** None
+**Risk Level:** Low
+
+### 7. `src/components/CascadeErrorDialog.tsx`
+**Description:** Removed unused imports, added `ErrorDetails` interface
+**Verification Status:** ✅ Correct
+**Issues:** None
+**Risk Level:** Low
+
+### 8. `src/components/CascadePopup.tsx`
+**Description:** Added `CascadePopupProps` interface
+**Verification Status:** ✅ Correct
+**Issues:** None
+**Risk Level:** Low
+
+### 9. `src/components/CascadeRunProgress.tsx`
+**Description:** Removed unused imports and variables
+**Verification Status:** ✅ Correct
+**Issues:** None
+**Risk Level:** Low
+
+### 10. `src/components/BackgroundCallsIndicator.tsx`
+**Description:** Removed all unused imports, simplified to minimal component
+**Verification Status:** ✅ Correct
+**Issues:** None
+**Risk Level:** Low
+
+### 11. `src/components/ConfluencePagesSection.tsx`
+**Description:** Added `ConfluencePage`, `PageTreeNode`, `PageTreeNodeProps` interfaces
+**Verification Status:** ✅ Correct
+**Issues:** None
+**Risk Level:** Low
+
+### 12. `src/components/ConfluenceSearchModal.tsx`
+**Description:** Added type definitions
+**Verification Status:** ⚠️ Warning - Build error indicates unused `cn` import (line 18)
+**Issues:** Unused import not removed
+**Risk Level:** Low
+
+### 13. `src/components/ContextHeader.tsx`
+**Description:** Added type definitions
+**Verification Status:** ✅ Correct (not mentioned in build errors)
+**Issues:** None
+**Risk Level:** Low
+
+### 14. `src/components/DebugInfoPopup.tsx`
+**Description:** Added comprehensive type interfaces
+**Verification Status:** ❌ Bug Found - Uses untyped `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent` components
+**Issues:** 7 TypeScript errors on lines 131-273 because `tabs.tsx` was NOT typed in this implementation
+**Risk Level:** Critical - Build blocked
+
+### 15. `src/hooks/useConfluencePages.ts`
+**Description:** Added type definitions
+**Verification Status:** ✅ Correct
+**Issues:** None
+**Risk Level:** Low
 
 ---
 
-## Phase 1: Critical Path UI Primitives (4 files)
+## Bugs Found (Numbered List)
 
-These are blocking the main error dialogs and progress components.
+### Critical Build-Blocking Bugs
 
-### 1.1 `src/components/ui/tooltip.tsx`
+| # | File | Line(s) | Description |
+|---|------|---------|-------------|
+| 1 | `src/components/ui/tabs.tsx` | 8, 19, 30 | **NOT FIXED** - `TabsList`, `TabsTrigger`, `TabsContent` missing forwardRef type parameters |
+| 2 | `src/components/ui/popover.tsx` | 10 | **NOT FIXED** - `PopoverContent` missing forwardRef type parameters |
+| 3 | `src/components/ui/scroll-area.tsx` | (unknown) | **PARTIAL** - May have issues with `orientation` prop (line 139 in IconPicker.tsx) |
+| 4 | `src/components/DebugInfoPopup.tsx` | 131-273 | Uses untyped Tabs components causing 7 type errors |
+| 5 | `src/components/IconPicker.tsx` | 139-153 | Uses untyped Tabs and ScrollArea components causing 3 type errors |
+| 6 | `src/components/FilesPagesSection.tsx` | 1, 10, 19, 41-66 | **NOT FIXED** - Unused React import, 9 implicit `any` types on event handlers |
+| 7 | `src/hooks/useConversationFiles.ts` | 6-8 | **NOT FIXED** - `files` state returns `never[]` type due to no generic |
+| 8 | `src/components/GuardedLink.tsx` | 9, 13, 22, 26 | **NOT FIXED** - Entire component lacks TypeScript typing |
+| 9 | `src/components/DeleteConfirmationDialog.tsx` | 1, 13 | **NOT FIXED** - Unused React import, 4 implicit `any` binding elements |
+| 10 | `src/components/ExpandedTreeItem.tsx` | 1, 4 | **NOT FIXED** - Unused React import, 2 implicit `any` types |
+| 11 | `src/components/HalfWidthBox.tsx` | 1, 4 | **NOT FIXED** - Unused React import, 2 implicit `any` types |
+| 12 | `src/components/IconPicker.tsx` | 1, 9, 15, 22, 27, 77, 92, 101 | **NOT FIXED** - 8 implicit `any` types |
+| 13 | `src/components/ErrorBoundary.tsx` | 76, 105 | `import.meta.env` type error - Vite types not recognized |
+| 14 | `src/components/FigmaSearchModal.tsx` | 18 | Unused `cn` import |
 
-Add type parameters to `Tooltip` component and `TooltipContent` forwardRef:
+---
+
+## Critical Risks
+
+| # | Risk | Severity | Remediation |
+|---|------|----------|-------------|
+| 1 | **Build completely blocked** | CRITICAL | ~150 TypeScript errors remain due to incomplete scope |
+| 2 | **Tabs component untyped** | CRITICAL | Add forwardRef type parameters to `tabs.tsx` |
+| 3 | **Popover component untyped** | CRITICAL | Add forwardRef type parameters to `popover.tsx` |
+| 4 | **useConversationFiles returns `never[]`** | HIGH | Files typed as `never` causing all property accesses to fail in FilesPagesSection |
+| 5 | **GuardedLink completely untyped** | HIGH | Entire component has no TypeScript support |
+
+---
+
+## Unintended Changes
+
+**None detected** - All changes were within approved scope. The issue is massive omission, not scope creep.
+
+---
+
+## Omissions (Complete List)
+
+The implementation plan specified 11 files. The following critical files were **NOT addressed** despite being in the approved plan for Phase 3:
+
+### UI Primitives NOT Fixed (Build-Critical)
+
+| # | File | Status |
+|---|------|--------|
+| 1 | `src/components/ui/tabs.tsx` | ❌ NOT FIXED - Required by DebugInfoPopup, IconPicker |
+| 2 | `src/components/ui/popover.tsx` | ❌ NOT FIXED - Required by multiple components |
+| 3 | `src/components/ui/accordion.tsx` | ❌ NOT FIXED |
+| 4 | `src/components/ui/dropdown-menu.tsx` | ❌ NOT FIXED |
+| 5 | `src/components/ui/sheet.tsx` | ❌ NOT FIXED |
+| 6 | `src/components/ui/table.tsx` | ❌ NOT FIXED |
+| 7 | `src/components/ui/form.tsx` | ❌ NOT FIXED |
+| 8 | `src/components/ui/drawer.tsx` | ❌ NOT FIXED |
+| 9 | `src/components/ui/slider.tsx` | ❌ NOT FIXED |
+| 10 | `src/components/ui/radio-group.tsx` | ❌ NOT FIXED |
+| 11 | `src/components/ui/avatar.tsx` | ❌ NOT FIXED |
+| 12 | `src/components/ui/collapsible.tsx` | ❌ NOT FIXED |
+| 13 | `src/components/ui/navigation-menu.tsx` | ❌ NOT FIXED |
+| 14 | `src/components/ui/context-menu.tsx` | ❌ NOT FIXED |
+| 15 | `src/components/ui/menubar.tsx` | ❌ NOT FIXED |
+| 16 | `src/components/ui/hover-card.tsx` | ❌ NOT FIXED |
+| 17 | `src/components/ui/toggle.tsx` | ❌ NOT FIXED |
+| 18 | `src/components/ui/toggle-group.tsx` | ❌ NOT FIXED |
+| 19 | `src/components/ui/pagination.tsx` | ❌ NOT FIXED |
+| 20 | `src/components/ui/resizable.tsx` | ❌ NOT FIXED |
+| 21 | `src/components/ui/carousel.tsx` | ❌ NOT FIXED |
+| 22 | `src/components/ui/command.tsx` | ❌ NOT FIXED |
+| 23 | `src/components/ui/input-otp.tsx` | ❌ NOT FIXED |
+
+### Application Components NOT Fixed
+
+| # | File | Issues |
+|---|------|--------|
+| 1 | `src/components/FilesPagesSection.tsx` | 9 implicit `any` types, unused import |
+| 2 | `src/hooks/useConversationFiles.ts` | State typed as `never[]` |
+| 3 | `src/components/GuardedLink.tsx` | Completely untyped forwardRef |
+| 4 | `src/components/DeleteConfirmationDialog.tsx` | 4 implicit `any` props |
+| 5 | `src/components/ExpandedTreeItem.tsx` | 2 implicit `any` props |
+| 6 | `src/components/HalfWidthBox.tsx` | 2 implicit `any` props |
+| 7 | `src/components/IconPicker.tsx` | 8 implicit `any` types |
+| 8 | `src/components/ErrorBoundary.tsx` | Vite `import.meta.env` type issue |
+| 9 | `src/components/FigmaSearchModal.tsx` | Unused import |
+
+---
+
+## Architectural Deviations
+
+**None detected** - The approach of adding forwardRef type parameters is architecturally sound and follows existing patterns.
+
+---
+
+## Summary
+
+| Metric | Value |
+|--------|-------|
+| Files Modified | 15 |
+| Files Correctly Fixed | 12 |
+| Files with Remaining Issues | 3 |
+| UI Primitives Still Untyped | 23 |
+| Application Components Still Untyped | 9 |
+| Total Build Errors | ~150 |
+| **Status** | ❌ **BLOCKED** |
+
+**Assessment:** The implementation is **incomplete**. Phases 1 and 2 were partially executed (critical UI primitives fixed), but Phase 3 (23 remaining UI primitives) was **entirely skipped**. Additionally, several application components with TypeScript violations were not addressed.
+
+**Recommendation:** Progression is **BLOCKED** until the build compiles successfully.
+
+---
+
+## Remediation Plan
+
+### Immediate Priority: Fix Build-Critical UI Primitives
+
+#### Step 1: Fix `src/components/ui/tabs.tsx`
 
 ```typescript
 import * as React from "react"
-import * as TooltipPrimitive from "@radix-ui/react-tooltip"
+import * as TabsPrimitive from "@radix-ui/react-tabs"
 import { cn } from "@/lib/utils"
-import { useTooltipSettings } from "@/contexts/TooltipContext"
 
-const TooltipProvider = TooltipPrimitive.Provider
+const Tabs = TabsPrimitive.Root
 
-interface TooltipProps extends React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Root> {
+const TabsList = React.forwardRef<
+  React.ElementRef<typeof TabsPrimitive.List>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
+>(({ className, ...props }, ref) => (
+  <TabsPrimitive.List
+    ref={ref}
+    className={cn(
+      "inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground",
+      className
+    )}
+    {...props} />
+))
+TabsList.displayName = TabsPrimitive.List.displayName
+
+const TabsTrigger = React.forwardRef<
+  React.ElementRef<typeof TabsPrimitive.Trigger>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
+>(({ className, ...props }, ref) => (
+  <TabsPrimitive.Trigger
+    ref={ref}
+    className={cn(
+      "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm",
+      className
+    )}
+    {...props} />
+))
+TabsTrigger.displayName = TabsPrimitive.Trigger.displayName
+
+const TabsContent = React.forwardRef<
+  React.ElementRef<typeof TabsPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content>
+>(({ className, ...props }, ref) => (
+  <TabsPrimitive.Content
+    ref={ref}
+    className={cn(
+      "mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+      className
+    )}
+    {...props} />
+))
+TabsContent.displayName = TabsPrimitive.Content.displayName
+
+export { Tabs, TabsList, TabsTrigger, TabsContent }
+```
+
+#### Step 2: Fix `src/components/ui/popover.tsx`
+
+```typescript
+import * as React from "react"
+import * as PopoverPrimitive from "@radix-ui/react-popover"
+import { cn } from "@/lib/utils"
+
+const Popover = PopoverPrimitive.Root
+const PopoverTrigger = PopoverPrimitive.Trigger
+
+const PopoverContent = React.forwardRef<
+  React.ElementRef<typeof PopoverPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content>
+>(({ className, align = "center", sideOffset = 4, ...props }, ref) => (
+  <PopoverPrimitive.Portal>
+    <PopoverPrimitive.Content
+      ref={ref}
+      align={align}
+      sideOffset={sideOffset}
+      className={cn(
+        "z-50 w-72 rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+        className
+      )}
+      {...props} />
+  </PopoverPrimitive.Portal>
+))
+PopoverContent.displayName = PopoverPrimitive.Content.displayName
+
+export { Popover, PopoverTrigger, PopoverContent }
+```
+
+#### Step 3: Fix `src/hooks/useConversationFiles.ts`
+
+Add interface and type the state:
+
+```typescript
+interface ConversationFile {
+  row_id: string;
+  assistant_row_id: string;
+  storage_path: string;
+  original_filename: string;
+  file_size: number;
+  mime_type: string;
+  upload_status: 'pending' | 'synced' | 'error';
+  openai_file_id: string | null;
+  created_at: string;
+}
+
+export const useConversationFiles = (assistantRowId: string | null) => {
+  const [files, setFiles] = useState<ConversationFile[]>([]);
+  // ... rest of implementation
+};
+```
+
+#### Step 4: Fix `src/components/FilesPagesSection.tsx`
+
+Remove unused import and add event handler types:
+
+```typescript
+import { useState } from 'react';
+// Remove: import React, { useState } from 'react';
+
+// Add prop interface
+interface FilesPagesectionProps {
+  conversationRowId?: string | null;
+}
+
+// Type helper functions
+const getFileIcon = (mimeType: string | null): React.FC<{ className?: string }> => { ... };
+const formatFileSize = (bytes: number | null): string => { ... };
+
+// Type event handlers
+const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => { ... };
+const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => { ... };
+const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => { ... };
+const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => { ... };
+```
+
+#### Step 5: Fix `src/components/GuardedLink.tsx`
+
+```typescript
+import { forwardRef, MouseEvent } from 'react';
+import { Link, useNavigate, To } from 'react-router-dom';
+import { useApiCallContext } from '@/contexts/ApiCallContext';
+
+interface GuardedLinkProps extends Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> {
+  to: To;
   children: React.ReactNode;
 }
 
-const Tooltip: React.FC<TooltipProps> = ({ children, ...props }) => {
-  const { tooltipsEnabled } = useTooltipSettings();
-  return <TooltipPrimitive.Root {...props}>{children}</TooltipPrimitive.Root>;
-}
+const GuardedLink = forwardRef<HTMLAnchorElement, GuardedLinkProps>(
+  ({ to, children, onClick, ...props }, ref) => {
+    const navigate = useNavigate();
+    const { requestNavigation } = useApiCallContext();
 
-const TooltipTrigger = TooltipPrimitive.Trigger
+    const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
+      if (onClick) onClick(e);
+      if (e.defaultPrevented) return;
+      e.preventDefault();
+      requestNavigation(String(to), () => navigate(to));
+    };
 
-const TooltipContent = React.forwardRef<
-  React.ElementRef<typeof TooltipPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content>
->(({ className, sideOffset = 4, ...props }, ref) => {
-  const { tooltipsEnabled } = useTooltipSettings();
-  
-  if (!tooltipsEnabled) {
-    return null;
+    return (
+      <Link ref={ref} to={to} onClick={handleClick} {...props}>
+        {children}
+      </Link>
+    );
   }
-  
-  return (
-    <TooltipPrimitive.Content
-      ref={ref}
-      sideOffset={sideOffset}
-      className={cn(
-        "z-50 overflow-hidden rounded-md border bg-popover px-2 py-1 text-tree text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
-        className
-      )}
-      {...props} />
-  );
-})
-TooltipContent.displayName = TooltipPrimitive.Content.displayName
+);
 
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
+GuardedLink.displayName = 'GuardedLink';
+export default GuardedLink;
 ```
 
-### 1.2 `src/components/ui/dialog.tsx`
+#### Step 6-23: Fix Remaining UI Primitives
 
-Add type parameters to all forwardRef components and typed props for functional components:
+Apply the same forwardRef type parameter pattern to:
+- `accordion.tsx`, `dropdown-menu.tsx`, `sheet.tsx`, `table.tsx`, `form.tsx`, `drawer.tsx`, `slider.tsx`, `radio-group.tsx`, `avatar.tsx`, `collapsible.tsx`, `navigation-menu.tsx`, `context-menu.tsx`, `menubar.tsx`, `hover-card.tsx`, `toggle.tsx`, `toggle-group.tsx`, `pagination.tsx`, `resizable.tsx`, `carousel.tsx`, `command.tsx`, `input-otp.tsx`
 
-```typescript
-import * as React from "react"
-import * as DialogPrimitive from "@radix-ui/react-dialog"
-import { X } from "lucide-react"
-import { cn } from "@/lib/utils"
+#### Step 24-32: Fix Remaining Application Components
 
-const Dialog = DialogPrimitive.Root
-const DialogTrigger = DialogPrimitive.Trigger
-const DialogPortal = DialogPrimitive.Portal
-const DialogClose = DialogPrimitive.Close
-
-const DialogOverlay = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Overlay>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
->(({ className, ...props }, ref) => (
-  <DialogPrimitive.Overlay
-    ref={ref}
-    className={cn(
-      "fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-      className
-    )}
-    {...props} />
-))
-DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
-
-interface DialogContentProps extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
-  hideCloseButton?: boolean;
-}
-
-const DialogContent = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Content>,
-  DialogContentProps
->(({ className, children, hideCloseButton = false, ...props }, ref) => (
-  <DialogPortal>
-    <DialogOverlay />
-    <DialogPrimitive.Content
-      ref={ref}
-      className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
-        className
-      )}
-      {...props}>
-      {children}
-      {!hideCloseButton && (
-        <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-          <X className="h-4 w-4" />
-          <span className="sr-only">Close</span>
-        </DialogPrimitive.Close>
-      )}
-    </DialogPrimitive.Content>
-  </DialogPortal>
-))
-DialogContent.displayName = DialogPrimitive.Content.displayName
-
-interface DialogHeaderProps extends React.HTMLAttributes<HTMLDivElement> {}
-const DialogHeader: React.FC<DialogHeaderProps> = ({ className, ...props }) => (
-  <div className={cn("flex flex-col space-y-1.5 text-center sm:text-left", className)} {...props} />
-)
-DialogHeader.displayName = "DialogHeader"
-
-interface DialogFooterProps extends React.HTMLAttributes<HTMLDivElement> {}
-const DialogFooter: React.FC<DialogFooterProps> = ({ className, ...props }) => (
-  <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2", className)} {...props} />
-)
-DialogFooter.displayName = "DialogFooter"
-
-const DialogTitle = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Title>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
->(({ className, ...props }, ref) => (
-  <DialogPrimitive.Title
-    ref={ref}
-    className={cn("text-lg font-semibold leading-none tracking-tight", className)}
-    {...props} />
-))
-DialogTitle.displayName = DialogPrimitive.Title.displayName
-
-const DialogDescription = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Description>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
->(({ className, ...props }, ref) => (
-  <DialogPrimitive.Description
-    ref={ref}
-    className={cn("text-sm text-muted-foreground", className)}
-    {...props} />
-))
-DialogDescription.displayName = DialogPrimitive.Description.displayName
-
-export {
-  Dialog,
-  DialogPortal,
-  DialogOverlay,
-  DialogClose,
-  DialogTrigger,
-  DialogContent,
-  DialogHeader,
-  DialogFooter,
-  DialogTitle,
-  DialogDescription,
-}
-```
-
-### 1.3 `src/components/ui/alert-dialog.tsx`
-
-Add type parameters to all forwardRef components:
-
-```typescript
-import * as React from "react"
-import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog"
-import { cn } from "@/lib/utils"
-import { buttonVariants } from "@/components/ui/button"
-
-const AlertDialog = AlertDialogPrimitive.Root
-const AlertDialogTrigger = AlertDialogPrimitive.Trigger
-const AlertDialogPortal = AlertDialogPrimitive.Portal
-
-const AlertDialogOverlay = React.forwardRef<
-  React.ElementRef<typeof AlertDialogPrimitive.Overlay>,
-  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Overlay>
->(({ className, ...props }, ref) => (
-  <AlertDialogPrimitive.Overlay
-    className={cn(
-      "fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-      className
-    )}
-    {...props}
-    ref={ref} />
-))
-AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName
-
-const AlertDialogContent = React.forwardRef<
-  React.ElementRef<typeof AlertDialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
->(({ className, ...props }, ref) => (
-  <AlertDialogPortal>
-    <AlertDialogOverlay />
-    <AlertDialogPrimitive.Content
-      ref={ref}
-      className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
-        className
-      )}
-      {...props} />
-  </AlertDialogPortal>
-))
-AlertDialogContent.displayName = AlertDialogPrimitive.Content.displayName
-
-interface AlertDialogHeaderProps extends React.HTMLAttributes<HTMLDivElement> {}
-const AlertDialogHeader: React.FC<AlertDialogHeaderProps> = ({ className, ...props }) => (
-  <div className={cn("flex flex-col space-y-2 text-center sm:text-left", className)} {...props} />
-)
-AlertDialogHeader.displayName = "AlertDialogHeader"
-
-interface AlertDialogFooterProps extends React.HTMLAttributes<HTMLDivElement> {}
-const AlertDialogFooter: React.FC<AlertDialogFooterProps> = ({ className, ...props }) => (
-  <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2", className)} {...props} />
-)
-AlertDialogFooter.displayName = "AlertDialogFooter"
-
-const AlertDialogTitle = React.forwardRef<
-  React.ElementRef<typeof AlertDialogPrimitive.Title>,
-  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Title>
->(({ className, ...props }, ref) => (
-  <AlertDialogPrimitive.Title ref={ref} className={cn("text-lg font-semibold", className)} {...props} />
-))
-AlertDialogTitle.displayName = AlertDialogPrimitive.Title.displayName
-
-const AlertDialogDescription = React.forwardRef<
-  React.ElementRef<typeof AlertDialogPrimitive.Description>,
-  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Description>
->(({ className, ...props }, ref) => (
-  <AlertDialogPrimitive.Description
-    ref={ref}
-    className={cn("text-sm text-muted-foreground", className)}
-    {...props} />
-))
-AlertDialogDescription.displayName = AlertDialogPrimitive.Description.displayName
-
-const AlertDialogAction = React.forwardRef<
-  React.ElementRef<typeof AlertDialogPrimitive.Action>,
-  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Action>
->(({ className, ...props }, ref) => (
-  <AlertDialogPrimitive.Action ref={ref} className={cn(buttonVariants(), className)} {...props} />
-))
-AlertDialogAction.displayName = AlertDialogPrimitive.Action.displayName
-
-const AlertDialogCancel = React.forwardRef<
-  React.ElementRef<typeof AlertDialogPrimitive.Cancel>,
-  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Cancel>
->(({ className, ...props }, ref) => (
-  <AlertDialogPrimitive.Cancel
-    ref={ref}
-    className={cn(buttonVariants({ variant: "outline" }), "mt-2 sm:mt-0", className)}
-    {...props} />
-))
-AlertDialogCancel.displayName = AlertDialogPrimitive.Cancel.displayName
-
-export {
-  AlertDialog,
-  AlertDialogPortal,
-  AlertDialogOverlay,
-  AlertDialogTrigger,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogFooter,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogAction,
-  AlertDialogCancel,
-}
-```
-
-### 1.4 `src/components/ui/progress.tsx`
-
-Add type parameters to forwardRef:
-
-```typescript
-import * as React from "react"
-import * as ProgressPrimitive from "@radix-ui/react-progress"
-import { cn } from "@/lib/utils"
-
-const Progress = React.forwardRef<
-  React.ElementRef<typeof ProgressPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof ProgressPrimitive.Root> & { value?: number }
->(({ className, value, ...props }, ref) => (
-  <ProgressPrimitive.Root
-    ref={ref}
-    className={cn("relative h-4 w-full overflow-hidden rounded-full bg-secondary", className)}
-    {...props}>
-    <ProgressPrimitive.Indicator
-      className="h-full w-full flex-1 bg-primary transition-all"
-      style={{ transform: `translateX(-${100 - (value || 0)}%)` }} />
-  </ProgressPrimitive.Root>
-))
-Progress.displayName = ProgressPrimitive.Root.displayName
-
-export { Progress }
-```
+- `DeleteConfirmationDialog.tsx` - Add prop interface
+- `ExpandedTreeItem.tsx` - Add prop interface
+- `HalfWidthBox.tsx` - Add prop interface
+- `IconPicker.tsx` - Add prop interface and type all functions
+- `ErrorBoundary.tsx` - Add Vite client types reference
+- `FigmaSearchModal.tsx` - Remove unused `cn` import
+- `ConfluenceSearchModal.tsx` - Remove unused `cn` import
 
 ---
 
-## Phase 2: Context and Application Components (7 files)
-
-### 2.1 `src/contexts/CascadeRunContext.tsx`
-
-Add full TypeScript interface for context value:
-
-```typescript
-import { createContext, useContext, useState, useCallback, useRef, ReactNode } from 'react';
-import { toast } from '@/components/ui/sonner';
-import { trackEvent } from '@/lib/posthog';
-
-interface CompletedPrompt {
-  promptRowId: string;
-  promptName: string;
-  response: string;
-}
-
-interface SkippedPrompt {
-  promptRowId: string;
-  promptName: string;
-}
-
-interface ErrorPrompt {
-  name: string;
-  row_id?: string;
-}
-
-interface ActionPreviewData {
-  jsonResponse: unknown;
-  config: unknown;
-  promptName: string;
-}
-
-interface QuestionData {
-  question: string;
-  variableName: string;
-  maxQuestions?: number;
-}
-
-interface QuestionProgress {
-  current: number;
-  max: number;
-}
-
-interface CollectedQuestionVar {
-  name: string;
-  value: string;
-}
-
-type ErrorAction = 'retry' | 'skip' | 'stop';
-
-interface CascadeRunContextValue {
-  // State
-  isRunning: boolean;
-  isPaused: boolean;
-  isCancelling: boolean;
-  currentLevel: number;
-  totalLevels: number;
-  currentPromptName: string;
-  currentPromptRowId: string | null;
-  currentPromptIndex: number;
-  totalPrompts: number;
-  completedPrompts: CompletedPrompt[];
-  skippedPrompts: SkippedPrompt[];
-  startTime: number | null;
-  error: string | null;
-  errorPrompt: ErrorPrompt | null;
-  singleRunPromptId: string | null;
-  actionPreview: ActionPreviewData | null;
-  skipAllPreviews: boolean;
-  pendingQuestion: QuestionData | null;
-  questionProgress: QuestionProgress;
-  collectedQuestionVars: CollectedQuestionVar[];
-  
-  // Actions
-  startCascade: (levels: number, promptCount: number, skippedCount?: number) => void;
-  updateProgress: (level: number, promptName: string, promptIndex: number, promptRowId?: string | null) => void;
-  markPromptComplete: (promptRowId: string, promptName: string, response: string) => void;
-  markPromptSkipped: (promptRowId: string, promptName: string) => void;
-  completeCascade: () => void;
-  cancel: () => Promise<void>;
-  pause: () => void;
-  resume: () => void;
-  isCancelled: () => boolean;
-  checkPaused: () => boolean;
-  showError: (promptData: ErrorPrompt, errorMessage: string) => Promise<ErrorAction>;
-  resolveError: (action: ErrorAction) => void;
-  showActionPreview: (previewData: ActionPreviewData) => Promise<boolean>;
-  resolveActionPreview: (confirmed: boolean) => void;
-  setSkipAllPreviews: (skip: boolean) => void;
-  startSingleRun: (promptRowId: string) => void;
-  endSingleRun: () => void;
-  registerCancelHandler: (handler: () => Promise<void>) => () => void;
-  showQuestion: (questionData: QuestionData) => Promise<string | null>;
-  resolveQuestion: (answer: string | null) => void;
-  addCollectedQuestionVar: (name: string, value: string) => void;
-  resetQuestionState: () => void;
-}
-
-const CascadeRunContext = createContext<CascadeRunContextValue | null>(null);
-
-export const useCascadeRun = (): CascadeRunContextValue => {
-  const context = useContext(CascadeRunContext);
-  if (!context) {
-    throw new Error('useCascadeRun must be used within a CascadeRunProvider');
-  }
-  return context;
-};
-
-interface CascadeRunProviderProps {
-  children: ReactNode;
-}
-
-export const CascadeRunProvider: React.FC<CascadeRunProviderProps> = ({ children }) => {
-  // ... rest of implementation unchanged
-};
-
-export default CascadeRunContext;
-```
-
-### 2.2 `src/components/ActionPreviewDialog.tsx`
-
-Remove unused imports and add prop interface:
-
-```typescript
-import { useMemo } from 'react';
-// ... other imports (remove ArrowRight from lucide-react)
-
-interface ActionPreviewDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  jsonResponse: Record<string, unknown> | null;
-  config: {
-    json_path?: string | string[];
-    name_field?: string;
-    content_field?: string;
-    placement?: 'children' | 'siblings' | 'top_level' | 'specific_prompt';
-    target_prompt_id?: string;
-  } | null;
-  promptName: string;
-  onConfirm?: () => void;
-  onCancel?: () => void;
-}
-
-interface AnalysisResult {
-  items: { name: string; contentPreview: string }[];
-  error: string | null;
-  availableArrays?: string[];
-}
-
-const getNestedValue = (obj: Record<string, unknown>, path: string): unknown => {
-  if (!path || path === 'root') return obj;
-  return path.split('.').reduce<unknown>((o, k) => (o as Record<string, unknown>)?.[k], obj);
-};
-
-const ActionPreviewDialog: React.FC<ActionPreviewDialogProps> = ({
-  open,
-  onOpenChange,
-  jsonResponse,
-  config,
-  promptName,
-  onConfirm,
-  onCancel,
-}) => {
-  // ... implementation with proper null checks
-};
-```
-
-### 2.3 `src/components/CascadeErrorDialog.tsx`
-
-Remove unused React import and add function parameter types:
-
-```typescript
-import { useCascadeRun } from '@/contexts/CascadeRunContext';
-// ... other imports (remove React import)
-import { LucideIcon } from 'lucide-react';
-
-interface ErrorDetails {
-  type: string;
-  icon: LucideIcon;
-  suggestion: string | null;
-}
-
-const getErrorDetails = (error: string | null): ErrorDetails => {
-  // ... implementation
-};
-
-const CascadeErrorDialog: React.FC = () => {
-  // ... implementation
-};
-```
-
-### 2.4 `src/components/CascadePopup.tsx`
-
-Remove unused React import and add prop interface:
-
-```typescript
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-
-interface CascadePopupProps {
-  isOpen: boolean;
-  onClose: (open: boolean) => void;
-  itemName: string;
-  fieldName: string;
-  fieldContent: string;
-}
-
-const CascadePopup: React.FC<CascadePopupProps> = ({ isOpen, onClose, itemName, fieldName, fieldContent }) => {
-  // ... implementation
-};
-```
-
-### 2.5 `src/components/CascadeRunProgress.tsx`
-
-Remove unused React import and currentPromptIndex variable:
-
-```typescript
-import { useState, useEffect } from 'react';
-// ... other imports
-
-const CascadeRunProgress: React.FC = () => {
-  const {
-    isRunning,
-    isPaused,
-    isCancelling,
-    currentLevel,
-    totalLevels,
-    currentPromptName,
-    // Remove: currentPromptIndex,
-    totalPrompts,
-    completedPrompts,
-    skippedPrompts,
-    startTime,
-    cancel,
-    pause,
-    resume,
-    skipAllPreviews,
-    setSkipAllPreviews,
-  } = useCascadeRun();
-  // ... rest unchanged
-};
-```
-
-### 2.6 `src/components/BackgroundCallsIndicator.tsx`
-
-Remove all unused imports:
-
-```typescript
-const BackgroundCallsIndicator: React.FC = () => {
-  return null;
-};
-
-export default BackgroundCallsIndicator;
-```
-
-### 2.7 `src/components/ConfluencePagesSection.tsx`
-
-Remove unused React import and add function parameter types:
-
-```typescript
-import { useState, useMemo } from 'react';
-// ... other imports
-
-interface ConfluencePage {
-  row_id: string;
-  page_id: string;
-  page_title: string;
-  parent_page_id: string | null;
-  page_url: string | null;
-  sync_status: 'synced' | 'pending' | 'error';
-  openai_file_id: string | null;
-  content_type: string;
-  position: number | null;
-}
-
-interface PageTreeNode extends ConfluencePage {
-  children: PageTreeNode[];
-}
-
-const buildPageTree = (pages: ConfluencePage[]): PageTreeNode[] => {
-  // ... implementation
-};
-
-interface PageTreeNodeProps {
-  page: PageTreeNode;
-  level?: number;
-  syncingPageId: string | null;
-  onSync: (rowId: string) => Promise<void>;
-  onDetach: (rowId: string) => void;
-  isLast?: boolean;
-  parentLines?: boolean[];
-}
-
-const PageTreeNode: React.FC<PageTreeNodeProps> = ({ /* ... */ }) => {
-  // ... implementation
-};
-```
-
----
-
-## Phase 3: Remaining UI Primitives (23 files)
-
-The following files require the same pattern of adding `React.forwardRef` type parameters:
-
-| File | Components |
-|------|------------|
-| `popover.tsx` | `PopoverContent` |
-| `accordion.tsx` | `AccordionItem`, `AccordionTrigger`, `AccordionContent` |
-| `tabs.tsx` | `TabsList`, `TabsTrigger`, `TabsContent` |
-| `avatar.tsx` | `Avatar`, `AvatarImage`, `AvatarFallback` |
-| `dropdown-menu.tsx` | All 15+ components |
-| `collapsible.tsx` | All components |
-| `sheet.tsx` | All components |
-| `table.tsx` | All 8 components |
-| `form.tsx` | All components |
-| `drawer.tsx` | All components |
-| `slider.tsx` | `Slider` |
-| `radio-group.tsx` | `RadioGroup`, `RadioGroupItem` |
-| `navigation-menu.tsx` | All components |
-| `context-menu.tsx` | All components |
-| `menubar.tsx` | All components |
-| `hover-card.tsx` | All components |
-| `toggle.tsx` | `Toggle` |
-| `toggle-group.tsx` | All components |
-| `pagination.tsx` | All components |
-| `resizable.tsx` | All components |
-| `carousel.tsx` | All components |
-| `command.tsx` | All components |
-| `input-otp.tsx` | All components |
-
----
-
-## Files to Modify (Complete List)
-
-| # | File | Priority | Changes |
-|---|------|----------|---------|
-| 1 | `src/components/ui/tooltip.tsx` | CRITICAL | Add forwardRef types |
-| 2 | `src/components/ui/dialog.tsx` | CRITICAL | Add forwardRef types + prop interfaces |
-| 3 | `src/components/ui/alert-dialog.tsx` | CRITICAL | Add forwardRef types + prop interfaces |
-| 4 | `src/components/ui/progress.tsx` | CRITICAL | Add forwardRef types |
-| 5 | `src/contexts/CascadeRunContext.tsx` | CRITICAL | Add full context interface |
-| 6 | `src/components/ActionPreviewDialog.tsx` | HIGH | Add prop interface, remove unused imports |
-| 7 | `src/components/CascadeErrorDialog.tsx` | HIGH | Add function types, remove unused import |
-| 8 | `src/components/CascadePopup.tsx` | HIGH | Add prop interface, remove unused import |
-| 9 | `src/components/CascadeRunProgress.tsx` | HIGH | Remove unused variable and import |
-| 10 | `src/components/BackgroundCallsIndicator.tsx` | HIGH | Remove all unused imports |
-| 11 | `src/components/ConfluencePagesSection.tsx` | HIGH | Add interfaces, remove unused import |
-| 12-34 | Phase 3 UI Primitives (23 files) | MEDIUM | Add forwardRef types |
-
----
-
-## Edge Function Error (Separate Issue)
-
-The "No response received from edge function" error is **unrelated to the build errors**. The logs show:
-
-- OpenAI request ran for 6+ minutes (360,021ms)
-- Only `keepalive` events received, no actual content
-- `accumulatedTextLength: 0` throughout
-
-This is a long-running gpt-5 request that timed out. The existing webhook-based background execution should handle this, but the stream appears to have hung. This requires separate investigation after the build is fixed.
-
----
-
-## Verification Checklist
-
-After implementation:
-1. `npm run build` completes with zero TypeScript errors
-2. All UI components render correctly
-3. CascadeRunContext provides properly typed values
-4. No runtime regressions
-
----
-
-## Recommendation
-
-**Proceed with Phases 1 and 2 first** (11 files) to unblock the critical path and verify the build. Then complete Phase 3 (23 files) systematically.
-
-Estimated changes: ~35 files, ~1200 lines of type definitions.
+## Estimated Effort
+
+| Phase | Files | Lines of Type Definitions |
+|-------|-------|---------------------------|
+| Critical UI (tabs, popover) | 2 | ~80 |
+| Hook Fixes | 2 | ~40 |
+| Application Components | 9 | ~150 |
+| Remaining UI Primitives | 21 | ~800 |
+| **Total** | **34** | **~1070** |
 
