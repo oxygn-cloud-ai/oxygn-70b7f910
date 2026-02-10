@@ -29,7 +29,15 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
 
   // Ensure root has an ID - moved BEFORE selectedNode computation
   const structureWithId = useMemo(() => {
-    return structure?._id ? structure : { ...structure, _id: 'root' };
+    const ensureIds = (node: Record<string, unknown>, isRoot = false): Record<string, unknown> => {
+      if (!node) return node;
+      const id = node._id ?? (isRoot ? 'root' : uuidv4());
+      const children = Array.isArray(node.children)
+        ? node.children.map((child: Record<string, unknown>) => ensureIds(child, false))
+        : [];
+      return { ...node, _id: id, children };
+    };
+    return structure ? ensureIds(structure, true) : { _id: 'root', prompt_name: 'Root Prompt', children: [] };
   }, [structure]);
 
   // Auto-select root node on mount so top-level prompt is immediately editable
