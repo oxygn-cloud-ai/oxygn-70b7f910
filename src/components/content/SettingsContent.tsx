@@ -1878,6 +1878,7 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
     setCredential, 
     deleteCredential,
     isServiceConfigured,
+    isSystemKeyActive,
     isLoading: isCredLoading 
   } = useUserCredentials();
   const [isSaving, setIsSaving] = useState(false);
@@ -1897,7 +1898,8 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
   // Check if confluence is configured - base URL from settings, credentials per-user
   const confluenceUrl = settings['confluence_base_url']?.value || settings['CONFLUENCE_URL']?.value || settings['confluence_url']?.value || '';
   const hasUserCredentials = isServiceConfigured('confluence');
-  const isConnected = !!(confluenceUrl && hasUserCredentials);
+  const systemKeyActive = isSystemKeyActive('confluence');
+  const isConnected = !!(confluenceUrl && (hasUserCredentials || systemKeyActive));
   
   // Sync edited URL with settings
   useEffect(() => {
@@ -2012,14 +2014,20 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
           <Link2 className="h-5 w-5 text-on-surface-variant" />
           <div className="flex-1">
             <h4 className="text-body-sm text-on-surface font-medium">
-              {isConnected ? 'Connected' : 'Not Connected'}
+              {systemKeyActive ? 'System Key Active' : isConnected ? 'Connected' : 'Not Connected'}
             </h4>
-            <p className="text-[10px] text-on-surface-variant">{displayDomain}</p>
+            <p className="text-[10px] text-on-surface-variant">
+              {systemKeyActive ? 'A system-wide key is configured by your administrator' : displayDomain}
+            </p>
           </div>
-          {isConnected ? (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">Active</span>
+          {systemKeyActive ? (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary flex items-center gap-1">
+              <Key className="h-3 w-3" /> System
+            </span>
+          ) : isConnected ? (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-success/10 text-success">Active</span>
           ) : (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600">Incomplete</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-warning/10 text-warning">Incomplete</span>
           )}
         </div>
 
@@ -2078,7 +2086,8 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
         </SettingRow>
       </SettingCard>
 
-      {/* Credentials Card */}
+      {/* Credentials Card - hidden when system key is active */}
+      {!systemKeyActive && (
       <SettingCard label="Credentials">
         <div className="flex items-center gap-3 mb-3">
           <Key className="h-5 w-5 text-on-surface-variant" />
@@ -2175,6 +2184,7 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
           </div>
         </div>
       </SettingCard>
+      )}
 
       {/* Settings Card */}
       <SettingCard label="Settings">
@@ -2236,20 +2246,19 @@ const GeminiSection = () => {
     getCredentialStatus, 
     setCredential, 
     deleteCredential,
-    isServiceConfigured,
+    isSystemKeyActive,
     isLoading: isCredLoading 
   } = useUserCredentials();
   const [isSaving, setIsSaving] = useState(false);
   const [apiKey, setApiKey] = useState('');
-  const [showKey, setShowKey] = useState(false);
 
-  // Check Gemini status on mount
   useEffect(() => {
     getCredentialStatus('gemini');
   }, [getCredentialStatus]);
 
   const geminiStatus = credentialStatus['gemini'] || {};
   const isConfigured = geminiStatus.api_key === true;
+  const systemKeyActive = isSystemKeyActive('gemini');
 
   const handleSaveKey = async () => {
     if (!apiKey.trim()) {
@@ -2262,7 +2271,7 @@ const GeminiSection = () => {
       setApiKey('');
       toast.success('Gemini API key saved');
       trackEvent('gemini_api_key_saved');
-    } catch (error) {
+    } catch {
       toast.error('Failed to save API key');
     } finally {
       setIsSaving(false);
@@ -2275,7 +2284,7 @@ const GeminiSection = () => {
       await deleteCredential('gemini', 'api_key');
       toast.success('Gemini API key removed');
       trackEvent('gemini_api_key_deleted');
-    } catch (error) {
+    } catch {
       toast.error('Failed to remove API key');
     } finally {
       setIsSaving(false);
@@ -2290,93 +2299,90 @@ const GeminiSection = () => {
           <Sparkles className="h-5 w-5 text-on-surface-variant" />
           <div className="flex-1">
             <h4 className="text-body-sm text-on-surface font-medium">
-              {isConfigured ? 'Connected' : 'Not Connected'}
+              {systemKeyActive ? 'System Key Active' : isConfigured ? 'Connected' : 'Not Connected'}
             </h4>
             <p className="text-[10px] text-on-surface-variant">
-              {isConfigured 
-                ? 'Your API key is securely stored' 
-                : 'Add your Google AI API key to fetch Gemini models'}
+              {systemKeyActive
+                ? 'A system-wide key is configured by your administrator'
+                : isConfigured 
+                  ? 'Your API key is securely stored' 
+                  : 'Add your Google AI API key to fetch Gemini models'}
             </p>
           </div>
-          {isConfigured ? (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">Active</span>
+          {systemKeyActive ? (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary flex items-center gap-1">
+              <Key className="h-3 w-3" /> System
+            </span>
+          ) : isConfigured ? (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-success/10 text-success">Active</span>
           ) : (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600">Not Set</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-warning/10 text-warning">Not Set</span>
           )}
         </div>
       </SettingCard>
 
-      {/* API Key Card */}
-      <SettingCard label="API Key">
-        <div className="space-y-3">
-          <SettingRow 
-            label="Google AI API Key" 
-            description={isConfigured ? "Key is securely stored" : "Required for fetching Gemini models"}
-          >
-            {isConfigured ? (
-              <div className="flex items-center gap-2">
-                <span className="text-body-sm text-on-surface font-mono">••••••••••••</span>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={handleDeleteKey}
-                      disabled={isSaving || isCredLoading}
-                      className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08] hover:text-destructive disabled:opacity-50"
-                    >
-                      {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent className="text-[10px]">Remove API Key</TooltipContent>
-                </Tooltip>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <input
-                  type={showKey ? "text" : "password"}
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="Enter API key..."
-                  className="h-8 w-48 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => setShowKey(!showKey)}
-                      className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
-                    >
-                      {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent className="text-[10px]">{showKey ? 'Hide' : 'Show'}</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={handleSaveKey}
-                      disabled={isSaving || isCredLoading || !apiKey.trim()}
-                      className="w-8 h-8 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08] disabled:opacity-50"
-                    >
-                      {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent className="text-[10px]">Save API Key</TooltipContent>
-                </Tooltip>
-              </div>
-            )}
-          </SettingRow>
-          
-          <div className="pt-2">
-            <a 
-              href="https://aistudio.google.com/app/apikey" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-[10px] text-primary hover:underline flex items-center gap-1"
+      {/* API Key Card - hidden when system key is active */}
+      {!systemKeyActive && (
+        <SettingCard label="API Key">
+          <div className="space-y-3">
+            <SettingRow 
+              label="Google AI API Key" 
+              description={isConfigured ? "Key is securely stored" : "Required for fetching Gemini models"}
             >
-              Get API Key from Google AI Studio <ExternalLink className="h-3 w-3" />
-            </a>
+              {isConfigured ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-body-sm text-on-surface font-mono">••••••••••••</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={handleDeleteKey}
+                        disabled={isSaving || isCredLoading}
+                        className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08] hover:text-destructive disabled:opacity-50"
+                      >
+                        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-[10px]">Remove API Key</TooltipContent>
+                  </Tooltip>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="password"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="Enter API key..."
+                    className="h-8 w-48 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={handleSaveKey}
+                        disabled={isSaving || isCredLoading || !apiKey.trim()}
+                        className="w-8 h-8 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08] disabled:opacity-50"
+                      >
+                        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-[10px]">Save API Key</TooltipContent>
+                  </Tooltip>
+                </div>
+              )}
+            </SettingRow>
+            
+            <div className="pt-2">
+              <a 
+                href="https://aistudio.google.com/app/apikey" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-[10px] text-primary hover:underline flex items-center gap-1"
+              >
+                Get API Key from Google AI Studio <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
           </div>
-        </div>
-      </SettingCard>
+        </SettingCard>
+      )}
 
       {/* Info Card */}
       <SettingCard label="About">
