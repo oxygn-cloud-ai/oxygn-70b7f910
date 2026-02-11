@@ -1,34 +1,35 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useRef, useMemo } from "react";
 import { 
-  Brain, Zap, Clock, DollarSign, LayoutDashboard,
-  Gauge, Activity, Globe, FileSearch, Code, MessageSquare,
-  Copy, X, Pause, Play, SkipForward, Loader2,
-  Thermometer, Hash, Percent, Settings2, Wrench
+  Brain, Zap, DollarSign, LayoutDashboard,
+  Gauge, Activity, Globe, FileSearch, Code,
+  Copy, X, Pause, Play,
+  Settings2, Wrench
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { useLiveApiDashboard } from "@/contexts/LiveApiDashboardContext";
 import { useCascadeRun } from "@/contexts/CascadeRunContext";
 import { estimateCost } from "@/utils/costEstimator";
 import { toast } from "@/components/ui/sonner";
+import type { LucideIcon } from 'lucide-react';
 
 // Format token count with K suffix
-const formatTokens = (count) => {
+const formatTokens = (count: number | null | undefined) => {
   if (!count || count === 0) return '0';
   if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
   return String(count);
 };
 
 // Format cost in dollars
-const formatCost = (cost) => {
+const formatCost = (cost: number | null | undefined) => {
   if (!cost || cost === 0) return '$0.00';
   if (cost < 0.01) return `$${cost.toFixed(4)}`;
   return `$${cost.toFixed(3)}`;
 };
 
 // Format elapsed time
-const formatTime = (seconds) => {
+const formatTime = (seconds: number | null | undefined) => {
   if (!seconds || seconds === 0) return '0:00';
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
@@ -36,7 +37,7 @@ const formatTime = (seconds) => {
 };
 
 // Calculate tokens per second
-const calculateSpeed = (call) => {
+const calculateSpeed = (call: any) => {
   if (!call?.firstTokenAt || !call?.lastTokenAt || !call?.tokenCount) return null;
   const durationMs = call.lastTokenAt - call.firstTokenAt;
   if (durationMs <= 0) return null;
@@ -44,7 +45,14 @@ const calculateSpeed = (call) => {
 };
 
 // Metric row component
-const MetricRow = ({ label, value, icon: Icon, sublabel }) => (
+interface MetricRowProps {
+  label: string;
+  value: string | number;
+  icon?: LucideIcon;
+  sublabel?: string;
+}
+
+const MetricRow = ({ label, value, icon: Icon, sublabel }: MetricRowProps) => (
   <div className="flex items-center justify-between py-1.5">
     <div className="flex items-center gap-2">
       {Icon && <Icon className="h-3.5 w-3.5 text-on-surface-variant" />}
@@ -58,7 +66,12 @@ const MetricRow = ({ label, value, icon: Icon, sublabel }) => (
 );
 
 // Setting row for resolved settings display
-const SettingRow = ({ label, value }) => (
+interface SettingRowProps {
+  label: string;
+  value: string | number;
+}
+
+const SettingRowDisplay = ({ label, value }: SettingRowProps) => (
   <div className="flex items-center justify-between py-1">
     <span className="text-[11px] text-on-surface-variant">{label}</span>
     <span className="text-[11px] text-on-surface font-mono">{value}</span>
@@ -66,7 +79,13 @@ const SettingRow = ({ label, value }) => (
 );
 
 // Tool badge component
-const ToolBadge = ({ enabled, icon: Icon, label }) => (
+interface ToolBadgeProps {
+  enabled: boolean;
+  icon: LucideIcon;
+  label: string;
+}
+
+const ToolBadge = ({ enabled, icon: Icon, label }: ToolBadgeProps) => (
   <div className={`flex items-center gap-1 px-2 py-1 rounded-m3-sm text-[10px] ${
     enabled 
       ? 'bg-primary/10 text-primary' 
@@ -78,7 +97,8 @@ const ToolBadge = ({ enabled, icon: Icon, label }) => (
 );
 
 const DashboardTabContent = () => {
-  const { activeCalls, hasActiveCalls, cancelCall, cumulativeStats } = useLiveApiDashboard();
+  const { activeCalls, hasActiveCalls, cancelCall, cumulativeStats } = useLiveApiDashboard() as any;
+  const cascadeRun = useCascadeRun() as any;
   const { 
     isRunning: isCascadeRunning, 
     isPaused, 
@@ -90,20 +110,20 @@ const DashboardTabContent = () => {
     pause, 
     resume, 
     cancel: cancelCascade,
-    skipPreviews,
-    setSkipPreviews,
-  } = useCascadeRun();
+  } = cascadeRun;
+  const skipPreviews = cascadeRun.skipPreviews ?? false;
+  const setSkipPreviews = cascadeRun.setSkipPreviews ?? (() => {});
 
   // Timer state
   const [elapsed, setElapsed] = useState(0);
-  const timerRef = useRef(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   // Auto-scroll for reasoning
-  const reasoningRef = useRef(null);
-  const [autoScroll, setAutoScroll] = useState(true);
+  const reasoningRef = useRef<HTMLDivElement>(null);
+  const [_autoScroll, _setAutoScroll] = useState(true);
 
   // Get the primary active call
-  const primaryCall = activeCalls[0];
+  const primaryCall = (activeCalls as any[])?.[0] as any;
   
   // Calculate live metrics
   const liveSpeed = useMemo(() => calculateSpeed(primaryCall), [primaryCall?.tokenCount, primaryCall?.firstTokenAt, primaryCall?.lastTokenAt]);
@@ -143,10 +163,10 @@ const DashboardTabContent = () => {
 
   // Auto-scroll reasoning
   useEffect(() => {
-    if (autoScroll && reasoningRef.current && primaryCall?.thinkingSummary) {
+    if (_autoScroll && reasoningRef.current && primaryCall?.thinkingSummary) {
       reasoningRef.current.scrollTop = reasoningRef.current.scrollHeight;
     }
-  }, [primaryCall?.thinkingSummary, autoScroll]);
+  }, [primaryCall?.thinkingSummary, _autoScroll]);
 
   // Copy reasoning to clipboard
   const handleCopyReasoning = () => {
@@ -271,31 +291,31 @@ const DashboardTabContent = () => {
           </div>
           
           {resolvedSettings.temperature !== undefined && (
-            <SettingRow label="Temperature" value={resolvedSettings.temperature} />
+            <SettingRowDisplay label="Temperature" value={resolvedSettings.temperature} />
           )}
           {resolvedSettings.max_output_tokens !== undefined && (
-            <SettingRow label="Max Output Tokens" value={resolvedSettings.max_output_tokens.toLocaleString()} />
+            <SettingRowDisplay label="Max Output Tokens" value={resolvedSettings.max_output_tokens.toLocaleString()} />
           )}
           {resolvedSettings.top_p !== undefined && (
-            <SettingRow label="Top P" value={resolvedSettings.top_p} />
+            <SettingRowDisplay label="Top P" value={resolvedSettings.top_p} />
           )}
           {resolvedSettings.frequency_penalty !== undefined && (
-            <SettingRow label="Frequency Penalty" value={resolvedSettings.frequency_penalty} />
+            <SettingRowDisplay label="Frequency Penalty" value={resolvedSettings.frequency_penalty} />
           )}
           {resolvedSettings.presence_penalty !== undefined && (
-            <SettingRow label="Presence Penalty" value={resolvedSettings.presence_penalty} />
+            <SettingRowDisplay label="Presence Penalty" value={resolvedSettings.presence_penalty} />
           )}
           {resolvedSettings.reasoning_effort && (
-            <SettingRow label="Reasoning Effort" value={resolvedSettings.reasoning_effort} />
+            <SettingRowDisplay label="Reasoning Effort" value={resolvedSettings.reasoning_effort} />
           )}
           {resolvedSettings.tool_choice && (
-            <SettingRow label="Tool Choice" value={resolvedSettings.tool_choice} />
+            <SettingRowDisplay label="Tool Choice" value={resolvedSettings.tool_choice} />
           )}
           {resolvedSettings.seed !== undefined && (
-            <SettingRow label="Seed" value={resolvedSettings.seed} />
+            <SettingRowDisplay label="Seed" value={resolvedSettings.seed} />
           )}
           {resolvedSettings.response_format && (
-            <SettingRow label="Response Format" value={resolvedSettings.response_format} />
+            <SettingRowDisplay label="Response Format" value={resolvedSettings.response_format} />
           )}
         </div>
       )}

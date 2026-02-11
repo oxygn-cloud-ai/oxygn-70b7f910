@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useState, useEffect } from 'react';
 import { Bot, Square, Loader2, CheckCircle2, Link2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Map progress stages to display text
-const getStageDisplay = (progress) => {
+const getStageDisplay = (progress: any) => {
   if (!progress) return { text: 'Starting...', icon: null, badge: null };
   
   switch (progress.stage || progress.type) {
@@ -26,7 +27,7 @@ const getStageDisplay = (progress) => {
       if (progress.cached) {
         return { text: 'Using cached context', icon: <CheckCircle2 className="h-3 w-3 text-green-500" />, badge: null };
       }
-      const parts = [];
+      const parts: string[] = [];
       if (progress.files_count > 0) parts.push(`${progress.files_count} file${progress.files_count > 1 ? 's' : ''}`);
       if (progress.pages_count > 0) parts.push(`${progress.pages_count} page${progress.pages_count > 1 ? 's' : ''}`);
       const contextText = parts.length > 0 ? `Context loaded (${parts.join(', ')})` : 'Context ready';
@@ -44,7 +45,13 @@ const getStageDisplay = (progress) => {
   }
 };
 
-const ThinkingIndicator = ({ onCancel, conversationName, progress }) => {
+interface ThinkingIndicatorProps {
+  onCancel?: () => void;
+  conversationName?: string;
+  progress?: any;
+}
+
+const ThinkingIndicator = ({ onCancel, conversationName, progress }: ThinkingIndicatorProps) => {
   const [elapsed, setElapsed] = useState(0);
   const [lastHeartbeat, setLastHeartbeat] = useState(Date.now());
 
@@ -63,7 +70,7 @@ const ThinkingIndicator = ({ onCancel, conversationName, progress }) => {
     }
   }, [progress]);
 
-  const formatTime = (seconds) => {
+  const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
@@ -160,7 +167,7 @@ const ThinkingIndicator = ({ onCancel, conversationName, progress }) => {
         {/* Progress stages indicator */}
         {progress?.stage && (
           <div className="flex items-center gap-1 mb-2">
-            {['prompt_loaded', 'context_ready', 'calling_api'].map((stage, idx) => {
+            {['prompt_loaded', 'context_ready', 'calling_api'].map((stage, _idx) => {
               const stages = ['prompt_loaded', 'loading_context', 'context_ready', 'calling_api'];
               const currentIdx = stages.indexOf(progress.stage);
               const stageIdx = stages.indexOf(stage);

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Mail, Lock, User, Eye, EyeOff, ArrowRight } from "lucide-react";
-import { SettingInput } from "@/components/ui/setting-input";
+// UI components available if needed
 
 const AuthContent = () => {
   const [mode, setMode] = useState("login"); // "login" or "signup"

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Plus, Trash2, MessageSquare, Search, Pencil, Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -33,21 +33,20 @@ const ThreadSidebar: React.FC<ThreadSidebarProps> = ({
   onClose,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [editingThreadId, setEditingThreadId] = useState(null);
+  const [editingThreadId, setEditingThreadId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
 
   const filteredThreads = threads.filter(thread => 
-    thread.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    thread.preview?.toLowerCase().includes(searchQuery.toLowerCase())
+    thread.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleStartRename = (thread, e) => {
+  const handleStartRename = (thread: ChatThread, e: React.MouseEvent) => {
     e.stopPropagation();
     setEditingThreadId(thread.row_id);
     setEditName(thread.name || '');
   };
 
-  const handleSaveRename = (threadId) => {
+  const handleSaveRename = (threadId: string) => {
     if (editName.trim()) {
       onRenameThread?.(threadId, editName.trim());
       trackEvent('chat_thread_renamed', { thread_id: threadId });

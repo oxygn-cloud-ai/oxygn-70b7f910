@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Trash2, 
@@ -26,8 +27,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import type { LucideIcon } from 'lucide-react';
 
-const ITEM_TYPES = [
+const ITEM_TYPES: Array<{ key: string; label: string; icon: LucideIcon }> = [
   { key: 'all', label: 'All', icon: Trash2 },
   { key: 'prompts', label: 'Prompts', icon: FileText },
   { key: 'templates', label: 'Templates', icon: LayoutTemplate },
@@ -35,11 +37,11 @@ const ITEM_TYPES = [
   { key: 'exportTemplates', label: 'Export Templates', icon: FileJson }
 ];
 
-const formatDate = (dateStr) => {
+const formatDate = (dateStr: string | null | undefined) => {
   if (!dateStr) return 'Unknown';
   const date = new Date(dateStr);
   const now = new Date();
-  const diffMs = now - date;
+  const diffMs = now.getTime() - date.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
   
   if (diffDays === 0) return 'Today';
@@ -49,7 +51,14 @@ const formatDate = (dateStr) => {
   return date.toLocaleDateString();
 };
 
-const DeletedItemRow = ({ item, type, onRestore, onDelete }) => {
+interface DeletedItemRowProps {
+  item: any;
+  type: string;
+  onRestore: (type: string, rowId: string) => void;
+  onDelete: (type: string, rowId: string, name: string) => void;
+}
+
+const DeletedItemRow = ({ item, type, onRestore, onDelete }: DeletedItemRowProps) => {
   const getItemName = () => {
     switch (type) {
       case 'prompts': return item.prompt_name || 'Untitled Prompt';
@@ -119,7 +128,7 @@ const DeletedItemRow = ({ item, type, onRestore, onDelete }) => {
   );
 };
 
-const EmptyState = ({ filter }) => (
+const EmptyState = ({ filter }: { filter: string }) => (
   <div className="flex flex-col items-center justify-center py-12 text-center">
     <Trash2 className="h-10 w-10 text-on-surface-variant/30 mb-3" />
     <p className="text-body-sm text-on-surface-variant">
@@ -143,12 +152,12 @@ const DeletedItemsContent = () => {
     permanentlyDeleteItem,
     restoreAll,
     permanentlyDeleteAll
-  } = useDeletedItems(isAdmin);
+  } = useDeletedItems(isAdmin) as any;
 
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [deleteDialog, setDeleteDialog] = useState({ open: false, type: null, rowId: null, name: '' });
-  const [emptyTrashDialog, setEmptyTrashDialog] = useState({ open: false, type: null });
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; type: string | null; rowId: string | null; name: string }>({ open: false, type: null, rowId: null, name: '' });
+  const [emptyTrashDialog, setEmptyTrashDialog] = useState<{ open: boolean; type: string | null }>({ open: false, type: null });
 
   useEffect(() => {
     fetchAllDeleted();
@@ -156,16 +165,16 @@ const DeletedItemsContent = () => {
 
   // Filter items based on active filter and search query
   const filteredItems = useMemo(() => {
-    const getItems = () => {
+    const getItems = (): any[] => {
       if (activeFilter === 'all') {
         return [
-          ...deletedItems.prompts.map(item => ({ ...item, _type: 'prompts' })),
-          ...deletedItems.templates.map(item => ({ ...item, _type: 'templates' })),
-          ...deletedItems.jsonSchemas.map(item => ({ ...item, _type: 'jsonSchemas' })),
-          ...deletedItems.exportTemplates.map(item => ({ ...item, _type: 'exportTemplates' }))
-        ].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+          ...(deletedItems?.prompts || []).map((item: any) => ({ ...item, _type: 'prompts' })),
+          ...(deletedItems?.templates || []).map((item: any) => ({ ...item, _type: 'templates' })),
+          ...(deletedItems?.jsonSchemas || []).map((item: any) => ({ ...item, _type: 'jsonSchemas' })),
+          ...(deletedItems?.exportTemplates || []).map((item: any) => ({ ...item, _type: 'exportTemplates' }))
+        ].sort((a: any, b: any) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
       }
-      return deletedItems[activeFilter]?.map(item => ({ ...item, _type: activeFilter })) || [];
+      return (deletedItems?.[activeFilter] || []).map((item: any) => ({ ...item, _type: activeFilter }));
     };
 
     const items = getItems();
@@ -173,17 +182,17 @@ const DeletedItemsContent = () => {
     if (!searchQuery.trim()) return items;
 
     const query = searchQuery.toLowerCase();
-    return items.filter(item => {
+    return items.filter((item: any) => {
       const name = item.prompt_name || item.template_name || item.schema_name || '';
       return name.toLowerCase().includes(query);
     });
   }, [deletedItems, activeFilter, searchQuery]);
 
-  const handleRestore = async (type, rowId) => {
+  const handleRestore = async (type: string, rowId: string) => {
     await restoreItem(type, rowId);
   };
 
-  const handleDeleteClick = (type, rowId, name) => {
+  const handleDeleteClick = (type: string, rowId: string, name: string) => {
     setDeleteDialog({ open: true, type, rowId, name });
   };
 
@@ -209,7 +218,7 @@ const DeletedItemsContent = () => {
     trackEvent('trash_restore_all', { type: activeFilter });
   };
 
-  const currentCount = activeFilter === 'all' ? counts.total : counts[activeFilter];
+  const currentCount = activeFilter === 'all' ? counts?.total : (counts as any)?.[activeFilter];
 
   return (
     <div className="h-full flex flex-col bg-surface overflow-hidden">
@@ -217,7 +226,7 @@ const DeletedItemsContent = () => {
       <div className="h-14 flex items-center gap-3 px-4 border-b border-outline-variant shrink-0">
         <Trash2 className="h-5 w-5 text-on-surface-variant" />
         <h2 className="text-title-sm text-on-surface font-medium">Deleted Items</h2>
-        {counts.total > 0 && (
+        {counts?.total > 0 && (
           <span className="px-2 py-0.5 bg-surface-container rounded-m3-full text-label-sm text-on-surface-variant">
             {counts.total}
           </span>
@@ -255,11 +264,11 @@ const DeletedItemsContent = () => {
             >
               <Icon className="h-3.5 w-3.5" />
               <span>{label}</span>
-              {key !== 'all' && counts[key] > 0 && (
+              {key !== 'all' && (counts as any)?.[key] > 0 && (
                 <span className={`text-[10px] px-1.5 rounded-m3-full ${
                   activeFilter === key ? 'bg-on-primary/20' : 'bg-surface-container'
                 }`}>
-                  {counts[key]}
+                  {(counts as any)[key]}
                 </span>
               )}
             </button>
@@ -322,7 +331,7 @@ const DeletedItemsContent = () => {
             <EmptyState filter={activeFilter} />
           ) : (
             <div className="space-y-1">
-              {filteredItems.map((item, index) => (
+              {filteredItems.map((item: any, index: number) => (
                 <React.Fragment key={`${item._type}-${item.row_id}`}>
                   <DeletedItemRow
                     item={item}
@@ -338,7 +347,7 @@ const DeletedItemsContent = () => {
         </SettingCard>
 
         {/* Info text */}
-        {counts.total > 0 && (
+        {counts?.total > 0 && (
           <p className="text-[10px] text-on-surface-variant text-center">
             Items in trash can be restored or permanently deleted. Permanent deletion cannot be undone.
           </p>
@@ -354,7 +363,7 @@ const DeletedItemsContent = () => {
               Permanently Delete?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to permanently delete "{deleteDialog.name}"? This action cannot be undone.
+              Are you sure you want to permanently delete &quot;{deleteDialog.name}&quot;? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

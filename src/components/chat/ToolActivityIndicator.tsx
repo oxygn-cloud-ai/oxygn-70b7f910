@@ -6,7 +6,7 @@ interface ToolActivityIndicatorProps {
   isExecuting: boolean;
 }
 
-export const ToolActivityIndicator = ({ toolActivity, isExecuting }: ToolActivityIndicatorProps) => {
+export const ToolActivityIndicator = ({ toolActivity, isExecuting: _isExecuting }: ToolActivityIndicatorProps) => {
   if (!toolActivity || toolActivity.length === 0) return null;
 
   return (
