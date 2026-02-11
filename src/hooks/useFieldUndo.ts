@@ -13,11 +13,11 @@ const MAX_UNDO_STACK = 10;
  *                                 When entityId changes, undo stack is fully reset.
  *                                 When only initialValue changes (same entity), undo stack is preserved.
  */
-export const useFieldUndo = (initialValue, entityId = null) => {
-  const [undoStack, setUndoStack] = useState([]);
-  const originalValueRef = useRef(initialValue);
-  const prevEntityIdRef = useRef(entityId);
-  const prevInitialValueRef = useRef(initialValue);
+export const useFieldUndo = (initialValue: string, entityId: string | null = null) => {
+  const [undoStack, setUndoStack] = useState<string[]>([]);
+  const originalValueRef = useRef<string>(initialValue);
+  const prevEntityIdRef = useRef<string | null>(entityId);
+  const prevInitialValueRef = useRef<string>(initialValue);
   
   useEffect(() => {
     // When entity changes (different prompt selected), fully reset
@@ -37,7 +37,7 @@ export const useFieldUndo = (initialValue, entityId = null) => {
   }, [initialValue, entityId]);
   
   // Push a value onto the undo stack (call before saving new value)
-  const pushPreviousValue = useCallback((value) => {
+  const pushPreviousValue = useCallback((value: string | null | undefined) => {
     if (value === undefined || value === null) return;
     
     setUndoStack(prev => {
@@ -72,7 +72,7 @@ export const useFieldUndo = (initialValue, entityId = null) => {
   const hasPreviousValue = undoStack.length > 0;
   
   // Check if current value differs from original
-  const hasChangedFromOriginal = useCallback((currentValue) => {
+  const hasChangedFromOriginal = useCallback((currentValue: string) => {
     const original = originalValueRef.current || '';
     const current = currentValue || '';
     return current !== original;

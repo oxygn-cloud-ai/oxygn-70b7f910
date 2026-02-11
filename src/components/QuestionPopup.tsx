@@ -1,8 +1,24 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { X, Send, Loader2, MessageCircleQuestion, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+interface CollectedVariable {
+  name: string;
+  value?: string;
+}
+
+interface QuestionPopupProps {
+  isOpen: boolean;
+  onClose: (open: boolean) => void;
+  question: string;
+  variableName?: string;
+  description?: string;
+  progress?: { current: number; max: number } | null;
+  collectedVariables?: CollectedVariable[];
+  onSubmit: (value: string) => void;
+}
 
 /**
  * QuestionPopup - Displays AI questions to user in question prompts
@@ -16,17 +32,17 @@ export function QuestionPopup({
   question,
   variableName,
   description,
-  progress,           // { current: number, max: number }
-  collectedVariables, // [{ name: string, value: string }, ...]
+  progress,
+  collectedVariables,
   onSubmit,
-}) {
+}: QuestionPopupProps) {
   const [inputValue, setInputValue] = useState('');
   const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false);
-  const textareaRef = useRef(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   // Focus textarea when popup opens
   useEffect(() => {
-    let timeoutId;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
     if (isOpen && textareaRef.current) {
       timeoutId = setTimeout(() => textareaRef.current?.focus(), 100);
     }
@@ -48,7 +64,7 @@ export function QuestionPopup({
     setInputValue('');
   };
   
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
@@ -97,7 +113,7 @@ export function QuestionPopup({
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                onClick={onClose}
+                onClick={() => onClose(false)}
                 className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container"
               >
                 <X className="h-4 w-4 text-on-surface-variant" />
@@ -178,13 +194,13 @@ export function QuestionPopup({
             <div className="h-px bg-outline-variant mb-3" />
             <span className="text-label-sm text-on-surface-variant uppercase tracking-wider">Collected</span>
             <div className="mt-2 space-y-1.5">
-              {collectedVariables.map((v, idx) => (
+              {collectedVariables.map((v: CollectedVariable, idx: number) => (
                 <div key={v.name || idx} className="flex items-start gap-2">
                   <CheckCircle2 className="h-3 w-3 text-green-500 mt-0.5 shrink-0" />
                   <div className="min-w-0 flex-1">
                     <span className="text-[10px] text-primary font-mono">{`{{${v.name}}}`}</span>
                     <span className="text-[10px] text-on-surface-variant ml-1 truncate block">
-                      {v.value?.slice(0, 40)}{v.value?.length > 40 ? '...' : ''}
+                      {v.value?.slice(0, 40)}{(v.value?.length ?? 0) > 40 ? '...' : ''}
                     </span>
                   </div>
                 </div>

@@ -60,7 +60,7 @@ const PromptField: React.FC<PromptFieldProps> = ({ label, tooltip, value, onChan
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSavingRef = useRef(false);
   const selectionRef = useRef<{ start: number | null; end: number | null }>({ start: null, end: null });
-  const [_isLinking, setIsLinking] = useState(false);
+  const [_isLinking, _setIsLinking] = useState(false);
   const [cursorPosition, setCursorPosition] = useState<number | null>(null);
   const [contentHeight, setContentHeight] = useState(100);
   const [editValue, setEditValue] = useState(value || '');
@@ -76,7 +76,7 @@ const PromptField: React.FC<PromptFieldProps> = ({ label, tooltip, value, onChan
     hasPreviousValue,
     hasChangedFromOriginal,
     clearUndoStack,
-  } = useFieldUndo(value, promptId ?? undefined);
+  } = useFieldUndo(value, promptId ?? null);
   
   // Check if there are unsaved changes
   const hasUnsavedChanges = editValue !== lastSavedValue;
@@ -546,7 +546,7 @@ const PromptField: React.FC<PromptFieldProps> = ({ label, tooltip, value, onChan
             <VariablePicker 
               onInsert={handleInsertVariable}
               userVariables={variables as never[]}
-              familyRootPromptRowId={familyRootPromptRowId ?? undefined}
+              familyRootPromptRowId={familyRootPromptRowId as any}
             />
           )}
 
@@ -604,7 +604,7 @@ const PromptField: React.FC<PromptFieldProps> = ({ label, tooltip, value, onChan
                   if (!isReadOnly) {
                     handleTextChange(e.target.value);
                   }
-                  const syntheticEvent = { target: e.target } as React.SyntheticEvent<HTMLTextAreaElement>;
+                  const syntheticEvent = { target: e.target } as unknown as React.SyntheticEvent<HTMLTextAreaElement>;
                   handleCursorChange(syntheticEvent);
                 }}
                 onSelect={handleCursorChange as unknown as React.ReactEventHandler}

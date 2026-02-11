@@ -1,9 +1,17 @@
-import React from 'react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Save, RotateCcw } from 'lucide-react';
+
+interface SettingsAccordionProps {
+  expandedSettings: string[];
+  setExpandedSettings: (value: string[]) => void;
+  localSettings: Record<string, string>;
+  handleSettingChange: (key: string, value: string) => void;
+  handleSettingSave: (key: string, value: string) => void;
+  handleSettingReset: (key: string) => void;
+}
 
 const SettingsAccordion = ({
   expandedSettings,
@@ -12,7 +20,7 @@ const SettingsAccordion = ({
   handleSettingChange,
   handleSettingSave,
   handleSettingReset
-}) => {
+}: SettingsAccordionProps) => {
   const renderSettingFields = () => {
     const fields = [
       { key: 'openai_url', label: 'OpenAI URL', type: 'text' },

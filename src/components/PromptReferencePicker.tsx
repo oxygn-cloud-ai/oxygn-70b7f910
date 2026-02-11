@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,25 @@ const REFERENCE_FIELDS = [
   { key: 'prompt_name', label: 'Name', description: 'The prompt name' },
 ];
 
+interface PromptTreeNodeData {
+  row_id: string;
+  prompt_name?: string;
+  is_assistant?: boolean;
+  parent_row_id?: string | null;
+  position?: number;
+  children: PromptTreeNodeData[];
+}
+
+interface PromptTreeNodeProps {
+  node: PromptTreeNodeData;
+  level?: number;
+  selectedPromptId?: string;
+  onSelectPrompt: (node: PromptTreeNodeData) => void;
+  expandedNodes: Set<string>;
+  onToggleExpand: (nodeId: string) => void;
+  searchQuery: string;
+}
+
 // Recursive tree node component
 const PromptTreeNode = ({ 
   node, 
@@ -27,7 +46,7 @@ const PromptTreeNode = ({
   expandedNodes, 
   onToggleExpand,
   searchQuery 
-}) => {
+}: PromptTreeNodeProps) => {
   const hasChildren = node.children && node.children.length > 0;
   const isExpanded = expandedNodes.has(node.row_id);
   const isSelected = selectedPromptId === node.row_id;
@@ -39,7 +58,7 @@ const PromptTreeNode = ({
   // Check if any descendants match search
   const hasMatchingDescendants = useMemo(() => {
     if (!searchQuery) return true;
-    const checkDescendants = (n) => {
+    const checkDescendants = (n: PromptTreeNodeData): boolean => {
       if (n.prompt_name?.toLowerCase().includes(searchQuery.toLowerCase())) return true;
       return n.children?.some(checkDescendants) || false;
     };
@@ -96,7 +115,7 @@ const PromptTreeNode = ({
       {/* Children */}
       {hasChildren && isExpanded && (
         <div>
-          {node.children.map((child) => (
+          {node.children.map((child: PromptTreeNodeData) => (
             <PromptTreeNode
               key={child.row_id}
               node={child}
@@ -114,6 +133,13 @@ const PromptTreeNode = ({
   );
 };
 
+interface PromptReferencePickerProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onInsert: (reference: string) => void;
+  familyRootPromptRowId?: string | null;
+}
+
 /**
  * Modal for selecting a prompt and field to create a reference variable
  * Returns syntax: {{q.ref[UUID].field}}
@@ -122,20 +148,20 @@ const PromptReferencePicker = ({
   isOpen, 
   onClose, 
   onInsert,
-  familyRootPromptRowId = null, // If provided, filter to only show prompts in this family
-}) => {
+  familyRootPromptRowId = null, 
+}: PromptReferencePickerProps) => {
   const supabase = useSupabase();
   const { treeData, isLoading } = useTreeData(supabase);
   
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPrompt, setSelectedPrompt] = useState(null);
+  const [selectedPrompt, setSelectedPrompt] = useState<PromptTreeNodeData | null>(null);
   const [selectedField, setSelectedField] = useState('');
-  const [expandedNodes, setExpandedNodes] = useState(new Set());
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
   // Build tree structure from flat data
-  const buildTree = useCallback((items) => {
-    const itemMap = new Map();
-    const roots = [];
+  const buildTree = useCallback((items: Array<{ row_id: string; prompt_name?: string; is_assistant?: boolean; parent_row_id?: string | null; position?: number }>): PromptTreeNodeData[] => {
+    const itemMap = new Map<string, PromptTreeNodeData>();
+    const roots: PromptTreeNodeData[] = [];
 
     // First pass: create map
     items.forEach(item => {
@@ -144,18 +170,18 @@ const PromptReferencePicker = ({
 
     // Second pass: build tree
     items.forEach(item => {
-      const node = itemMap.get(item.row_id);
+      const node = itemMap.get(item.row_id)!;
       if (item.parent_row_id && itemMap.has(item.parent_row_id)) {
-        itemMap.get(item.parent_row_id).children.push(node);
+        itemMap.get(item.parent_row_id)!.children.push(node);
       } else {
         roots.push(node);
       }
     });
 
     // Sort children by position
-    const sortChildren = (nodes) => {
-      nodes.sort((a, b) => (a.position || 0) - (b.position || 0));
-      nodes.forEach(node => {
+    const sortChildren = (nodes: PromptTreeNodeData[]) => {
+      nodes.sort((a: PromptTreeNodeData, b: PromptTreeNodeData) => (a.position || 0) - (b.position || 0));
+      nodes.forEach((node: PromptTreeNodeData) => {
         if (node.children.length > 0) {
           sortChildren(node.children);
         }
@@ -173,13 +199,13 @@ const PromptReferencePicker = ({
     if (!familyRootPromptRowId) return fullTree;
     
     // Find and return only the family tree
-    const findFamilyRoot = (nodes) => {
+    const findFamilyRoot = (nodes: PromptTreeNodeData[]): PromptTreeNodeData[] => {
       for (const node of nodes) {
         if (node.row_id === familyRootPromptRowId) {
           return [node];
         }
         if (node.children?.length > 0) {
-          const found = findFamilyRoot(node.children);
+          const found: PromptTreeNodeData[] = findFamilyRoot(node.children);
           if (found.length > 0) return found;
         }
       }
@@ -189,7 +215,7 @@ const PromptReferencePicker = ({
     return findFamilyRoot(fullTree);
   }, [fullTree, familyRootPromptRowId]);
 
-  const handleToggleExpand = useCallback((nodeId) => {
+  const handleToggleExpand = useCallback((nodeId: string) => {
     setExpandedNodes(prev => {
       const next = new Set(prev);
       if (next.has(nodeId)) {
@@ -201,7 +227,7 @@ const PromptReferencePicker = ({
     });
   }, []);
 
-  const handleSelectPrompt = useCallback((node) => {
+  const handleSelectPrompt = useCallback((node: PromptTreeNodeData) => {
     setSelectedPrompt(node);
     // Auto-expand when selecting
     if (node.children?.length > 0) {
@@ -267,7 +293,7 @@ const PromptReferencePicker = ({
                     No prompts available
                   </div>
                 ) : (
-                  tree.map((node) => (
+                  tree.map((node: PromptTreeNodeData) => (
                     <PromptTreeNode
                       key={node.row_id}
                       node={node}

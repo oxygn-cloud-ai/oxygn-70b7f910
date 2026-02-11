@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import type { CheckedState } from '@radix-ui/react-checkbox';
 import { LayoutTemplate, Lock, Users } from 'lucide-react';
 import {
   Dialog,
@@ -25,6 +26,15 @@ import { useTemplates } from '@/hooks/useTemplates';
 import { toast } from '@/components/ui/sonner';
 import { trackEvent } from '@/lib/posthog';
 
+interface SaveAsTemplateDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  promptId?: string;
+  promptName?: string;
+  hasChildren?: boolean;
+  onSuccess?: () => void;
+}
+
 const SaveAsTemplateDialog = ({
   open,
   onOpenChange,
@@ -32,7 +42,7 @@ const SaveAsTemplateDialog = ({
   promptName,
   hasChildren = false,
   onSuccess,
-}) => {
+}: SaveAsTemplateDialogProps) => {
   const { createFromPrompt } = useTemplates();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -181,7 +191,7 @@ const SaveAsTemplateDialog = ({
             </div>
             <Switch
               checked={isShared}
-              onCheckedChange={setIsShared}
+              onCheckedChange={(v: boolean) => setIsShared(v)}
             />
           </div>
 
@@ -191,7 +201,7 @@ const SaveAsTemplateDialog = ({
               <Checkbox
                 id="include-children"
                 checked={includeChildren}
-                onCheckedChange={setIncludeChildren}
+                onCheckedChange={(v: CheckedState) => setIncludeChildren(v === true)}
               />
               <div>
                 <Label 

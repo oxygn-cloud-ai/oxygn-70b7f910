@@ -5,6 +5,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 
+interface ReasoningStreamPopupProps {
+  isOpen: boolean;
+  onClose: (open: boolean) => void;
+  thinkingText?: string;
+  promptName?: string;
+  model?: string;
+}
+
 /**
  * Full-screen popup for viewing streaming reasoning content.
  * Auto-scrolls to bottom as new content arrives with debounce.
@@ -15,9 +23,9 @@ const ReasoningStreamPopup = ({
   thinkingText,
   promptName,
   model 
-}) => {
-  const scrollRef = useRef(null);
-  const scrollTimeoutRef = useRef(null);
+}: ReasoningStreamPopupProps) => {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Auto-scroll to bottom as new content arrives (debounced)
   useEffect(() => {

@@ -1,4 +1,3 @@
-import React from 'react';
 import { SettingCard } from '@/components/ui/setting-card';
 import { SettingRow } from '@/components/ui/setting-row';
 import { Switch } from '@/components/ui/switch';
@@ -6,20 +5,31 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { MessageCircleQuestion } from 'lucide-react';
 
+interface QuestionConfig {
+  max_questions?: number;
+  completion_mode?: string;
+  show_progress?: boolean;
+}
+
+interface QuestionNodeSettingsProps {
+  config: QuestionConfig | null;
+  onChange: (config: QuestionConfig) => void;
+}
+
 /**
  * QuestionNodeSettings - Configuration panel for question prompt type
  * 
  * Manages settings like max questions, completion mode, and progress display.
  * Uses M3 design system patterns.
  */
-export function QuestionNodeSettings({ config, onChange }) {
-  const safeConfig = config || {
+export function QuestionNodeSettings({ config, onChange }: QuestionNodeSettingsProps) {
+  const safeConfig: QuestionConfig = config || {
     max_questions: 10,
     completion_mode: 'ai_decides',
     show_progress: true
   };
   
-  const handleChange = (key, value) => {
+  const handleChange = (key: keyof QuestionConfig, value: number | string | boolean) => {
     onChange({ ...safeConfig, [key]: value });
   };
   

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Search, X, Filter } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -10,6 +9,15 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 
+interface SearchFilterProps {
+  searchQuery: string;
+  onSearchChange: (value: string) => void;
+  filterType?: string;
+  onFilterChange?: (value: string) => void;
+  placeholder?: string;
+  showFilter?: boolean;
+}
+
 export function SearchFilter({ 
   searchQuery, 
   onSearchChange, 
@@ -17,7 +25,7 @@ export function SearchFilter({
   onFilterChange,
   placeholder = "Search prompts...",
   showFilter = true
-}) {
+}: SearchFilterProps) {
   const filterOptions = [
     { value: 'all', label: 'All Types' },
     { value: 'conversation', label: 'Conversations Only' },
@@ -65,15 +73,15 @@ export function SearchFilter({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40 bg-popover">
             {filterOptions.map((option, index) => (
-              <React.Fragment key={option.value}>
+              <div key={option.value}>
                 <DropdownMenuItem
-                  onClick={() => onFilterChange(option.value)}
+                  onClick={() => onFilterChange?.(option.value)}
                   className={`text-tree ${filterType === option.value ? 'bg-primary/10 text-primary' : ''}`}
                 >
                   {option.label}
                 </DropdownMenuItem>
                 {index === 0 && <DropdownMenuSeparator />}
-              </React.Fragment>
+              </div>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
