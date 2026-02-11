@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { History, Trash2, RotateCcw, Move, Command } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -11,12 +11,24 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useUndo } from '@/contexts/UndoContext';
 import { cn } from '@/lib/utils';
 
-const formatTime = (timestamp) => {
+interface UndoAction {
+  id: string;
+  type: string;
+  itemName?: string;
+  timestamp: number;
+  [key: string]: unknown;
+}
+
+interface UndoHistoryPopoverProps {
+  onUndo: (action: UndoAction) => Promise<void>;
+}
+
+const formatTime = (timestamp: number) => {
   const date = new Date(timestamp);
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
-const getActionIcon = (type) => {
+const getActionIcon = (type: string) => {
   switch (type) {
     case 'delete':
       return <Trash2 className="h-4 w-4 text-red-500" />;
@@ -27,7 +39,7 @@ const getActionIcon = (type) => {
   }
 };
 
-const getActionLabel = (type) => {
+const getActionLabel = (type: string) => {
   switch (type) {
     case 'delete':
       return 'Deleted';
@@ -38,12 +50,12 @@ const getActionLabel = (type) => {
   }
 };
 
-export function UndoHistoryPopover({ onUndo }) {
+export function UndoHistoryPopover({ onUndo }: UndoHistoryPopoverProps) {
   const { undoStack, clearAllUndo, hasUndo } = useUndo();
   const [isOpen, setIsOpen] = useState(false);
-  const [loadingId, setLoadingId] = useState(null);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
 
-  const handleUndo = async (action) => {
+  const handleUndo = async (action: UndoAction) => {
     setLoadingId(action.id);
     try {
       await onUndo(action);
@@ -52,11 +64,10 @@ export function UndoHistoryPopover({ onUndo }) {
     }
   };
 
-  const handleOpenChange = (open) => {
+  const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
   };
 
-  // Reverse the stack so most recent is at top
   const sortedStack = [...undoStack].reverse();
 
   return (

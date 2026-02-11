@@ -39,17 +39,17 @@ export const CONTEXT_VARIABLE_KEYS = [
 
 /**
  * Check if a variable key is a protected context variable
- * @param {string} key - Variable name to check
- * @returns {boolean} True if this is a protected context variable
+ * @param key - Variable name to check
+ * @returns True if this is a protected context variable
  */
-export const isContextVariable = (key) => CONTEXT_VARIABLE_KEYS.includes(key);
+export const isContextVariable = (key: string): boolean => CONTEXT_VARIABLE_KEYS.includes(key);
 
 /**
  * Filter out protected context variables from an object
- * @param {Object} variables - Object containing variable key-value pairs
- * @returns {Object} Filtered object without protected keys
+ * @param variables - Object containing variable key-value pairs
+ * @returns Filtered object without protected keys
  */
-export const filterProtectedVariables = (variables) => {
+export const filterProtectedVariables = (variables: Record<string, unknown> | null | undefined): Record<string, unknown> => {
   if (!variables || typeof variables !== 'object') return {};
   return Object.fromEntries(
     Object.entries(variables).filter(([key]) => !isContextVariable(key))

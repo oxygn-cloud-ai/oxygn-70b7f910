@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Bell, Trash2, CheckCircle, Info, XCircle, ChevronRight, Copy, Download, ArrowLeft } from 'lucide-react';
 import {
   Popover,
@@ -9,8 +9,21 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToastHistory } from '@/contexts/ToastHistoryContext';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import type { LucideIcon } from 'lucide-react';
 
-const getVariantIcon = (variant) => {
+interface Notification {
+  id: string;
+  title?: string;
+  description?: string;
+  variant?: string;
+  timestamp: Date;
+  details?: string | Record<string, unknown> | null;
+  errorCode?: string | null;
+  source?: string | null;
+  callStack?: string | null;
+}
+
+const getVariantIcon = (variant?: string) => {
   switch (variant) {
     case 'destructive':
       return <XCircle className="h-4 w-4 text-destructive" />;
@@ -21,7 +34,7 @@ const getVariantIcon = (variant) => {
   }
 };
 
-const getVariantLabel = (variant) => {
+const getVariantLabel = (variant?: string) => {
   switch (variant) {
     case 'destructive':
       return 'Error';
@@ -32,11 +45,11 @@ const getVariantLabel = (variant) => {
   }
 };
 
-const formatTime = (date) => {
+const formatTime = (date: Date) => {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
-const formatFullTime = (date) => {
+const formatFullTime = (date: Date) => {
   return date.toLocaleString([], { 
     year: 'numeric', 
     month: 'short', 
@@ -47,8 +60,14 @@ const formatFullTime = (date) => {
   });
 };
 
-// Icon button component for consistent styling
-const IconAction = ({ icon: Icon, onClick, tooltip, className = '' }) => (
+interface IconActionProps {
+  icon: LucideIcon;
+  onClick: () => void;
+  tooltip: string;
+  className?: string;
+}
+
+const IconAction = ({ icon: Icon, onClick, tooltip, className = '' }: IconActionProps) => (
   <TooltipProvider>
     <Tooltip>
       <TooltipTrigger asChild>
@@ -68,8 +87,12 @@ const IconAction = ({ icon: Icon, onClick, tooltip, className = '' }) => (
   </TooltipProvider>
 );
 
-// Small icon for inline copy
-const InlineCopyIcon = ({ onClick, tooltip }) => (
+interface InlineCopyIconProps {
+  onClick: () => void;
+  tooltip: string;
+}
+
+const InlineCopyIcon = ({ onClick, tooltip }: InlineCopyIconProps) => (
   <TooltipProvider>
     <Tooltip>
       <TooltipTrigger asChild>
@@ -86,11 +109,17 @@ const InlineCopyIcon = ({ onClick, tooltip }) => (
   </TooltipProvider>
 );
 
-// Detail view for a single notification
-const NotificationDetail = ({ notification, onBack, onCopy, onRemove }) => {
-  const [copyFeedback, setCopyFeedback] = useState(null);
+interface NotificationDetailProps {
+  notification: Notification;
+  onBack: () => void;
+  onCopy: (data: string) => Promise<boolean>;
+  onRemove: () => void;
+}
 
-  const showFeedback = (message) => {
+const NotificationDetail = ({ notification, onBack, onCopy, onRemove }: NotificationDetailProps) => {
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+
+  const showFeedback = (message: string) => {
     setCopyFeedback(message);
     setTimeout(() => setCopyFeedback(null), 1500);
   };
@@ -110,14 +139,13 @@ const NotificationDetail = ({ notification, onBack, onCopy, onRemove }) => {
     showFeedback(success ? 'Copied!' : 'Failed');
   };
 
-  const handleCopyField = async (label, value) => {
+  const handleCopyField = async (label: string, value: string) => {
     const success = await onCopy(value);
     showFeedback(success ? `${label} copied` : 'Failed');
   };
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2 border-b">
         <IconAction icon={ArrowLeft} onClick={onBack} tooltip="Back" />
         <h4 className="text-sm font-medium flex-1">Details</h4>
@@ -135,7 +163,6 @@ const NotificationDetail = ({ notification, onBack, onCopy, onRemove }) => {
 
       <ScrollArea className="flex-1">
         <div className="p-3 space-y-3">
-          {/* Type & Time */}
           <div className="flex items-center gap-2">
             {getVariantIcon(notification.variant)}
             <span className={cn(
@@ -151,18 +178,16 @@ const NotificationDetail = ({ notification, onBack, onCopy, onRemove }) => {
             </span>
           </div>
 
-          {/* Title */}
           {notification.title && (
             <div className="space-y-1">
               <label className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Title</label>
               <div className="flex items-start gap-2">
                 <p className="text-sm font-medium flex-1">{notification.title}</p>
-                <InlineCopyIcon onClick={() => handleCopyField('Title', notification.title)} tooltip="Copy title" />
+                <InlineCopyIcon onClick={() => handleCopyField('Title', notification.title || '')} tooltip="Copy title" />
               </div>
             </div>
           )}
 
-          {/* Description */}
           {notification.description && (
             <div className="space-y-1">
               <label className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Message</label>
@@ -170,34 +195,31 @@ const NotificationDetail = ({ notification, onBack, onCopy, onRemove }) => {
                 <p className="text-sm text-foreground flex-1 whitespace-pre-wrap break-words">
                   {notification.description}
                 </p>
-                <InlineCopyIcon onClick={() => handleCopyField('Message', notification.description)} tooltip="Copy message" />
+                <InlineCopyIcon onClick={() => handleCopyField('Message', notification.description || '')} tooltip="Copy message" />
               </div>
             </div>
           )}
 
-          {/* Error Code */}
           {notification.errorCode && (
             <div className="space-y-1">
               <label className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Error Code</label>
               <div className="flex items-center gap-2">
                 <code className="text-xs bg-muted px-2 py-1 rounded font-mono">{notification.errorCode}</code>
-                <InlineCopyIcon onClick={() => handleCopyField('Error code', notification.errorCode)} tooltip="Copy error code" />
+                <InlineCopyIcon onClick={() => handleCopyField('Error code', notification.errorCode || '')} tooltip="Copy error code" />
               </div>
             </div>
           )}
 
-          {/* Source */}
           {notification.source && (
             <div className="space-y-1">
               <label className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Source</label>
               <div className="flex items-center gap-2">
                 <code className="text-xs bg-muted px-2 py-1 rounded font-mono flex-1 break-all">{notification.source}</code>
-                <InlineCopyIcon onClick={() => handleCopyField('Source', notification.source)} tooltip="Copy source" />
+                <InlineCopyIcon onClick={() => handleCopyField('Source', notification.source || '')} tooltip="Copy source" />
               </div>
             </div>
           )}
 
-          {/* Details */}
           {notification.details && (
             <div className="space-y-1">
               <div className="flex items-center justify-between">
@@ -215,12 +237,11 @@ const NotificationDetail = ({ notification, onBack, onCopy, onRemove }) => {
             </div>
           )}
 
-          {/* Call Stack */}
           {notification.callStack && (
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <label className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Call Stack</label>
-                <InlineCopyIcon onClick={() => handleCopyField('Call stack', notification.callStack)} tooltip="Copy call stack" />
+                <InlineCopyIcon onClick={() => handleCopyField('Call stack', notification.callStack || '')} tooltip="Copy call stack" />
               </div>
               <pre className="text-[10px] bg-muted p-2 rounded font-mono overflow-x-auto whitespace-pre-wrap break-words max-h-40 text-muted-foreground">
                 {notification.callStack}
@@ -235,11 +256,11 @@ const NotificationDetail = ({ notification, onBack, onCopy, onRemove }) => {
 
 export function ToastHistoryPopover() {
   const { history, clearHistory, removeFromHistory, exportHistory, copyToClipboard } = useToastHistory();
-  const [selectedIndex, setSelectedIndex] = useState(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const [actionFeedback, setActionFeedback] = useState(null);
+  const [actionFeedback, setActionFeedback] = useState<string | null>(null);
 
-  const showFeedback = (message) => {
+  const showFeedback = (message: string) => {
     setActionFeedback(message);
     setTimeout(() => setActionFeedback(null), 1500);
   };
@@ -265,7 +286,7 @@ export function ToastHistoryPopover() {
     }
   };
 
-  const handleOpenChange = (open) => {
+  const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (!open) {
       setSelectedIndex(null);
@@ -298,9 +319,9 @@ export function ToastHistoryPopover() {
       >
         {selectedNotification ? (
           <NotificationDetail 
-            notification={selectedNotification}
+            notification={selectedNotification as Notification}
             onBack={() => setSelectedIndex(null)}
-            onCopy={copyToClipboard}
+            onCopy={copyToClipboard as (data: string) => Promise<boolean>}
             onRemove={handleRemoveSelected}
           />
         ) : (
@@ -327,7 +348,7 @@ export function ToastHistoryPopover() {
                 </div>
               ) : (
                 <div className="divide-y">
-                  {history.map((item, index) => (
+                  {history.map((item, index: number) => (
                     <button
                       key={`${item.id}-${index}`}
                       type="button"

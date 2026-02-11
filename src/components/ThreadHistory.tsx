@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { History, User, Bot, Loader2 } from 'lucide-react';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -12,19 +12,33 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
+interface ThreadMessage {
+  id?: string;
+  role: string;
+  content: string | Array<{ type: string; text?: { value?: string } }> | unknown;
+  created_at?: number | string;
+}
+
+interface ThreadHistoryProps {
+  messages: ThreadMessage[];
+  isLoading: boolean;
+  onFetchMessages: (threadRowId: string) => void;
+  threadRowId?: string;
+}
+
 const ThreadHistory = ({
   messages,
   isLoading,
   onFetchMessages,
   threadRowId,
-}) => {
+}: ThreadHistoryProps) => {
   useEffect(() => {
     if (threadRowId) {
       onFetchMessages(threadRowId);
     }
   }, [threadRowId, onFetchMessages]);
 
-  const formatContent = (content) => {
+  const formatContent = (content: ThreadMessage['content']): string => {
     if (typeof content === 'string') return content;
     if (Array.isArray(content)) {
       return content
@@ -70,7 +84,7 @@ const ThreadHistory = ({
             </div>
           ) : (
             <div className="space-y-4">
-              {messages.map((message, index) => (
+              {messages.map((message: ThreadMessage, index: number) => (
                 <div
                   key={message.id || index}
                   className={`flex gap-3 ${

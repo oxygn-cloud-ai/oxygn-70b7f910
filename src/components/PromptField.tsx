@@ -546,7 +546,7 @@ const PromptField: React.FC<PromptFieldProps> = ({ label, tooltip, value, onChan
             <VariablePicker 
               onInsert={handleInsertVariable}
               userVariables={variables as never[]}
-              familyRootPromptRowId={familyRootPromptRowId as any}
+              familyRootPromptRowId={familyRootPromptRowId}
             />
           )}
 

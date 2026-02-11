@@ -1,8 +1,27 @@
-import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
 
-const UndoContext = createContext(null);
+interface UndoAction {
+  id: string;
+  type: string;
+  itemName?: string;
+  timestamp: number;
+  [key: string]: unknown;
+}
 
-// Default retention period in minutes
+interface UndoContextValue {
+  undoStack: UndoAction[];
+  pushUndo: (action: Omit<UndoAction, 'timestamp'>) => void;
+  popUndo: () => void;
+  peekUndo: () => UndoAction | null;
+  clearUndo: (actionId: string) => void;
+  clearAllUndo: () => void;
+  hasUndo: boolean;
+  retentionMinutes: number;
+  updateRetention: (minutes: number | string) => void;
+}
+
+const UndoContext = createContext<UndoContextValue | null>(null);
+
 const DEFAULT_RETENTION_MINUTES = 30;
 
 export const useUndo = () => {
@@ -13,12 +32,11 @@ export const useUndo = () => {
   return context;
 };
 
-export const UndoProvider = ({ children }) => {
-  const [undoStack, setUndoStack] = useState([]);
+export const UndoProvider = ({ children }: { children: ReactNode }) => {
+  const [undoStack, setUndoStack] = useState<UndoAction[]>([]);
   const [retentionMinutes, setRetentionMinutes] = useState(DEFAULT_RETENTION_MINUTES);
-  const cleanupIntervalRef = useRef(null);
+  const cleanupIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Cleanup expired entries
   const cleanupExpired = useCallback(() => {
     const now = Date.now();
     const retentionMs = retentionMinutes * 60 * 1000;
@@ -32,12 +50,8 @@ export const UndoProvider = ({ children }) => {
     });
   }, [retentionMinutes]);
 
-  // Set up cleanup interval
   useEffect(() => {
-    // Run cleanup every minute
     cleanupIntervalRef.current = setInterval(cleanupExpired, 60 * 1000);
-    
-    // Also run immediately when retention changes
     cleanupExpired();
     
     return () => {
@@ -47,12 +61,10 @@ export const UndoProvider = ({ children }) => {
     };
   }, [cleanupExpired]);
 
-  // Push an action to the undo stack
-  const pushUndo = useCallback((action) => {
-    setUndoStack(prev => [...prev, { ...action, timestamp: Date.now() }]);
+  const pushUndo = useCallback((action: Omit<UndoAction, 'timestamp'>) => {
+    setUndoStack(prev => [...prev, { ...action, timestamp: Date.now() } as UndoAction]);
   }, []);
 
-  // Pop the most recent action from the stack
   const popUndo = useCallback(() => {
     setUndoStack(prev => {
       if (prev.length === 0) return prev;
@@ -60,24 +72,20 @@ export const UndoProvider = ({ children }) => {
     });
   }, []);
 
-  // Get the most recent action without removing it
   const peekUndo = useCallback(() => {
     return undoStack.length > 0 ? undoStack[undoStack.length - 1] : null;
   }, [undoStack]);
 
-  // Clear specific action by id
-  const clearUndo = useCallback((actionId) => {
+  const clearUndo = useCallback((actionId: string) => {
     setUndoStack(prev => prev.filter(a => a.id !== actionId));
   }, []);
 
-  // Clear all undo history
   const clearAllUndo = useCallback(() => {
     setUndoStack([]);
   }, []);
 
-  // Update retention period (in minutes)
-  const updateRetention = useCallback((minutes) => {
-    const value = Math.max(1, Math.min(1440, parseInt(minutes) || DEFAULT_RETENTION_MINUTES));
+  const updateRetention = useCallback((minutes: number | string) => {
+    const value = Math.max(1, Math.min(1440, parseInt(String(minutes)) || DEFAULT_RETENTION_MINUTES));
     setRetentionMinutes(value);
   }, []);
 

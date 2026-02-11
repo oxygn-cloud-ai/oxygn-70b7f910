@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Braces, Clock, User, FileText, ChevronRight, Link2 } from 'lucide-react';
 import {
   Popover,
@@ -17,9 +17,28 @@ import { cn } from '@/lib/utils';
 import {
   SYSTEM_VARIABLES,
   SYSTEM_VARIABLE_TYPES,
-  getSystemVariableNames,
 } from '@/config/systemVariables';
 import PromptReferencePicker from './PromptReferencePicker';
+import type { LucideIcon } from 'lucide-react';
+
+interface UserVariable {
+  name: string;
+}
+
+interface VariablePickerProps {
+  onInsert: (varName: string) => void;
+  userVariables?: (UserVariable | string)[];
+  className?: string;
+  side?: 'top' | 'bottom' | 'left' | 'right';
+  align?: 'start' | 'center' | 'end';
+  familyRootPromptRowId?: string | null;
+}
+
+interface VarGroup {
+  label: string;
+  icon: LucideIcon;
+  vars: string[];
+}
 
 /**
  * Compact variable picker with icon trigger
@@ -31,19 +50,19 @@ const VariablePicker = ({
   className,
   side = 'bottom',
   align = 'end',
-  familyRootPromptRowId = null, // Filter prompt references to this family
-}) => {
+  familyRootPromptRowId = null,
+}: VariablePickerProps) => {
   const [open, setOpen] = useState(false);
-  const [expandedSection, setExpandedSection] = useState(null);
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [showPromptPicker, setShowPromptPicker] = useState(false);
 
-  const handleInsert = (varName) => {
+  const handleInsert = (varName: string) => {
     onInsert(varName);
     setOpen(false);
   };
 
   // Group system variables by category
-  const systemVarGroups = {
+  const systemVarGroups: Record<string, VarGroup> = {
     datetime: {
       label: 'Date & Time',
       icon: Clock,
@@ -71,12 +90,12 @@ const VariablePicker = ({
     },
   };
 
-  const toggleSection = (section) => {
+  const toggleSection = (section: string) => {
     setExpandedSection(expandedSection === section ? null : section);
   };
 
-  const renderVariable = (varName) => {
-    const sysVar = SYSTEM_VARIABLES[varName];
+  const renderVariable = (varName: string) => {
+    const sysVar = (SYSTEM_VARIABLES as Record<string, { type?: string; label?: string; description?: string }>)[varName];
     const isStatic = sysVar?.type === SYSTEM_VARIABLE_TYPES.STATIC;
     
     return (
@@ -148,7 +167,7 @@ const VariablePicker = ({
             {Object.entries(systemVarGroups).map(([key, group]) => {
               const Icon = group.icon;
               const isExpanded = expandedSection === key;
-              const hasVars = group.vars.some(v => SYSTEM_VARIABLES[v]);
+              const hasVars = group.vars.some(v => (SYSTEM_VARIABLES as Record<string, unknown>)[v]);
               
               if (!hasVars) return null;
               
@@ -169,7 +188,7 @@ const VariablePicker = ({
                   
                   {isExpanded && (
                     <div className="ml-4 mt-0.5 border-l border-border pl-2">
-                      {group.vars.filter(v => SYSTEM_VARIABLES[v]).map(renderVariable)}
+                      {group.vars.filter(v => (SYSTEM_VARIABLES as Record<string, unknown>)[v]).map(renderVariable)}
                     </div>
                   )}
                 </div>
@@ -195,16 +214,19 @@ const VariablePicker = ({
                 
                 {expandedSection === 'user-defined' && (
                   <div className="ml-4 mt-0.5 border-l border-border pl-2">
-                    {userVariables.map(v => (
-                      <button
-                        key={v.name || v}
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => handleInsert(v.name || v)}
-                        className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded"
-                      >
-                        <span className="font-mono text-foreground">{`{{${v.name || v}}}`}</span>
-                      </button>
-                    ))}
+                    {userVariables.map((v) => {
+                      const name = typeof v === 'string' ? v : v.name;
+                      return (
+                        <button
+                          key={name}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => handleInsert(name)}
+                          className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded"
+                        >
+                          <span className="font-mono text-foreground">{`{{${name}}}`}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>

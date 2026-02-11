@@ -1,26 +1,69 @@
-import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 
-const ToastHistoryContext = createContext(null);
+interface NotifyOptions {
+  description?: string;
+  details?: string | Record<string, unknown>;
+  errorCode?: string;
+  source?: string;
+}
+
+interface HistoryEntry {
+  id: string;
+  title: string;
+  description: string | null;
+  variant: string;
+  timestamp: Date;
+  callStack: string | null;
+  details: string | Record<string, unknown> | null;
+  errorCode: string | null;
+  source: string | null;
+}
+
+interface ExportData {
+  exportedAt: string;
+  appVersion: string;
+  notificationCount: number;
+  notifications: Array<{
+    type: string;
+    title: string;
+    description: string;
+    timestamp: string;
+    details: string | Record<string, unknown> | null;
+    errorCode: string | null;
+    source: string | null;
+    callStack: string | null;
+  }>;
+}
+
+interface ToastHistoryContextValue {
+  history: HistoryEntry[];
+  addToHistory: (variant: string, title: string, options?: NotifyOptions) => void;
+  clearHistory: () => void;
+  removeFromHistory: (index: number) => void;
+  exportHistory: () => ExportData;
+  copyToClipboard: (data: unknown) => Promise<boolean>;
+}
+
+const ToastHistoryContext = createContext<ToastHistoryContextValue | null>(null);
 
 // Global notify function - set after provider mounts
-let globalNotify = null;
+let globalNotify: ((variant: string, title: string, options?: NotifyOptions) => void) | null = null;
 
 export const notify = {
-  success: (title, options = {}) => globalNotify?.('success', title, options),
-  error: (title, options = {}) => globalNotify?.('destructive', title, options),
-  info: (title, options = {}) => globalNotify?.('default', title, options),
-  warning: (title, options = {}) => globalNotify?.('warning', title, options),
+  success: (title: string, options: NotifyOptions = {}) => globalNotify?.('success', title, options),
+  error: (title: string, options: NotifyOptions = {}) => globalNotify?.('destructive', title, options),
+  info: (title: string, options: NotifyOptions = {}) => globalNotify?.('default', title, options),
+  warning: (title: string, options: NotifyOptions = {}) => globalNotify?.('warning', title, options),
 };
 
-export function ToastHistoryProvider({ children }) {
-  const [history, setHistory] = useState([]);
+export function ToastHistoryProvider({ children }: { children: ReactNode }) {
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
 
-  const addToHistory = useCallback((variant, title, options = {}) => {
-    // Capture call stack for debugging - strip "Error\n" prefix for cleaner display
+  const addToHistory = useCallback((variant: string, title: string, options: NotifyOptions = {}) => {
     const rawStack = new Error().stack;
     const callStack = rawStack?.replace(/^Error\n/, '') || null;
     
-    const entry = {
+    const entry: HistoryEntry = {
       id: Date.now().toString(),
       title,
       description: options.description || null,
@@ -32,7 +75,6 @@ export function ToastHistoryProvider({ children }) {
       source: options.source || null,
     };
     
-    // Log to console for debugging - include full context
     const logLevel = variant === 'destructive' ? 'error' : variant === 'warning' ? 'warn' : 'info';
     console[logLevel](`[Toast/${variant}] ${title}`, {
       description: options.description,
@@ -45,7 +87,6 @@ export function ToastHistoryProvider({ children }) {
     setHistory(prev => [entry, ...prev]);
   }, []);
 
-  // Set up global notify function
   useEffect(() => {
     globalNotify = addToHistory;
     return () => { globalNotify = null; };
@@ -55,11 +96,11 @@ export function ToastHistoryProvider({ children }) {
     setHistory([]);
   }, []);
 
-  const removeFromHistory = useCallback((index) => {
+  const removeFromHistory = useCallback((index: number) => {
     setHistory(prev => prev.filter((_, i) => i !== index));
   }, []);
 
-  const exportHistory = useCallback(() => {
+  const exportHistory = useCallback((): ExportData => {
     const exportData = history.map(item => ({
       type: item.variant || 'info',
       title: item.title || '',
@@ -79,12 +120,12 @@ export function ToastHistoryProvider({ children }) {
     };
   }, [history]);
 
-  const copyToClipboard = useCallback(async (data) => {
+  const copyToClipboard = useCallback(async (data: unknown): Promise<boolean> => {
     try {
       const text = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
       await navigator.clipboard.writeText(text);
       return true;
-    } catch (err) {
+    } catch {
       return false;
     }
   }, []);
