@@ -1,77 +1,92 @@
 
-# Fix Pre-existing TypeScript Strict Mode Errors
+# Fix Remaining Build Errors and Verify API Key System
 
-## Completed ✅
-- `src/components/PromptReferencePicker.tsx` - typed
-- `src/components/QuestionPopup.tsx` - typed
-- `src/components/ReasoningStreamPopup.tsx` - typed
-- `src/components/QuestionNodeSettings.tsx` - typed
-- `src/components/SaveAsTemplateDialog.tsx` - typed
-- `src/components/SearchFilter.tsx` - typed
-- `src/components/PromptField.tsx` - fixed unused vars, useFieldUndo call, event cast
-- `src/components/SettingField.tsx` - typed
-- `src/components/SettingsAccordion.tsx` - typed
-- `src/components/SettingsPanel.tsx` - typed
-- `src/components/TemplatePickerDialog.tsx` - typed with eslint-disable for any
-- `src/components/VariablePicker.tsx` - typed with proper interfaces
-- `src/components/ThreadHistory.tsx` - typed
-- `src/components/ThreadSelector.tsx` - typed
-- `src/components/ToastHistoryPopover.tsx` - typed
-- `src/components/UndoHistoryPopover.tsx` - typed
-- `src/contexts/ToastHistoryContext.tsx` - typed
-- `src/contexts/UndoContext.tsx` - typed
-- `src/config/contextVariables.ts` - typed
-- `src/components/admin/KnowledgeEditor.tsx` - typed
-- `src/components/admin/KnowledgeImportExport.tsx` - typed
-- `src/components/admin/KnowledgeManager.tsx` - typed (with `as any` for useKnowledge)
-- `src/components/ui/dropdown-menu.tsx` - added forwardRef generics
-- `src/components/ui/setting-card.tsx` - added forwardRef generics
-- `src/components/ui/setting-row.tsx` - added forwardRef generics
-- `src/components/ui/setting-divider.tsx` - added forwardRef generics
-- `src/components/ui/setting-input.tsx` - added forwardRef generics
-- `src/components/ui/table.tsx` - added forwardRef generics
-- `src/hooks/useFieldUndo.ts` - added type annotations
+## Problem
+Two large files have 100+ combined TypeScript strict mode errors that block the build entirely. Until these are fixed, the API key system (which is architecturally complete) cannot be tested end-to-end.
 
-## Remaining (cascading strict mode errors) 🔲
+## Phase 1: Fix PromptsContent.tsx (1753 lines, ~50 errors)
 
-### chat/ components
-- `src/components/chat/EmptyChat.tsx` - props interface
-- `src/components/chat/MessageItem.tsx` - remove unused `isStreaming`
-- `src/components/chat/ModelReasoningSelector.tsx` - props interface, type models
-- `src/components/chat/ThinkingIndicator.tsx` - props interface
-- `src/components/chat/ThreadSidebar.tsx` - type thread params, fix `preview` prop
-- `src/components/chat/ToolActivityIndicator.tsx` - remove unused `isExecuting`
+### 1a. Remove unused imports (lines 7-14)
+Remove: `MoreVertical`, `Star`, `Share2`, `Hash`, `List`, `ToggleLeft`, `Plus`, `PanelLeftClose`, `Bot`, `Thermometer`, `Clock`, `ChevronRight`, `AlertCircle`, `Info`
 
-### content/ components
-- `src/components/content/AuthContent.tsx` - remove unused SettingInput
-- `src/components/content/DashboardTabContent.tsx` - massive: props interfaces, type context, remove unused imports
-- `src/components/content/DeletedItemsContent.tsx` - likely needs typing
-- `src/components/content/HealthContent.tsx` - likely needs typing
-- `src/components/content/PromptsContent.tsx` - likely needs typing
-- `src/components/content/SettingsContent.tsx` - likely needs typing
-- `src/components/content/TemplatesContent.tsx` - likely needs typing
-- `src/components/content/VariablesTabContent.tsx` - likely needs typing
+### 1b. Add `eslint-disable` for `no-explicit-any` at top
+This file uses dynamic data throughout and full typing would be a multi-day refactor.
 
-### contexts/
-- `src/contexts/CascadeRunContext.tsx` - missing `skipPreviews`/`setSkipPreviews` in type
-- `src/contexts/LiveApiDashboardContext.tsx` - likely needs typing
+### 1c. Type the internal components
+- `HighlightedText`: add `{ text: string }` props interface
+- `TabButton`: add `{ icon: any; label: string; isActive: boolean; onClick: () => void; badge?: boolean }` interface
+- `VariableTypeIcon` / `SourceIcon`: type `{ type: string }` / `{ source: string }` or remove if unused
+- `LibraryPickerDropdown`: type props or remove if unused
+- `PromptTabContent`: add props interface with `promptData: any`, `onUpdateField: any`, etc.
+- `SettingsTabContent`: add props interface
+- Add missing `storageKey` and `onChange` props to `ResizablePromptArea` and `ResizableOutputArea` calls
 
-### hooks/
-- `src/hooks/useKnowledge.ts` - needs return type annotation
+### 1d. Fix `VARIABLE_DEFINITIONS` indexing
+Cast to `Record<string, any>` to allow string indexing.
+
+### 1e. Fix `LabelBadge` prop mismatch
+The component expects `RefAttributes<unknown>` but is passed `label` and `size`. Check the LabelBadge component API and fix the props.
+
+## Phase 2: Fix SettingsContent.tsx (2524 lines, ~60 errors)
+
+### 2a. Add `eslint-disable` for `no-explicit-any` at top
+
+### 2b. Type all section component props
+Every inner component (`GeneralSection`, `PromptNamingSection`, `AIModelsSection`, `ConversationDefaultsSection`, `ConversationsSection`, `ConfluenceSection`, `ThemeSection`, `NotificationsSection`, `ProfileSection`, `GeminiSection`) uses untyped destructured props. Add `any`-based interfaces for each.
+
+### 2c. Fix event handler types
+Multiple `handleChange(key, value)` and `handleSave(key)` functions have untyped parameters.
+
+### 2d. Fix the main `SettingsContent` component props
+Add interface for the outer component's props (activeSubItem, settings, models, etc.)
+
+## Phase 3: Verify API Key System End-to-End
+
+Once the build succeeds:
+
+### 3a. Verify admin guard on System API Keys UI
+- Navigate to Settings -> System API Keys
+- Confirm non-admin users see "Admin access required" message
+- Confirm admin users see the full key management interface
+
+### 3b. Test credential-manager edge function
+- Call `set_system` as admin: should succeed
+- Call `set_system` as non-admin: should return 403
+- Call `get_system_status`: should return status flags
+- Call `get_decrypted`: should use `decrypt_credential_with_fallback` (system first, then user)
+
+### 3c. Verify per-user key fields hide when system key active
+- When system key is set for OpenAI, the OpenAI integration settings should show "System Key Active" and hide the personal input field
+
+## Technical Details
+
+### Files modified
+- `src/components/content/PromptsContent.tsx` -- add eslint-disable, remove unused imports, add prop interfaces, fix component calls
+- `src/components/content/SettingsContent.tsx` -- add eslint-disable, add prop interfaces for all section components, fix handler types
+- Possibly `src/components/ui/label-badge.tsx` -- check if prop types need updating
 
 ### Approach
-- Only add types and remove unused imports
+- Use `eslint-disable @typescript-eslint/no-explicit-any` pragmatically for these two files
+- Add minimal `any`-based interfaces to satisfy strict mode without a full refactor
 - No functional, layout, or styling changes
-- Use `as any` or `eslint-disable` pragmatically for deeply untyped hooks/contexts
+- No changes to the credential system code (it's architecturally correct)
 
----
+### API Key Architecture Summary (verified correct)
 
-# IAM Framework Implementation
+```text
++-------------------+     +--------------------+     +------------------+
+| SystemApiKeys UI  |---->| credentials-manager|---->| system_credentials|
+| (admin-only)      |     | edge function      |     | table (encrypted) |
++-------------------+     +--------------------+     +------------------+
+                                    |
++-------------------+               |              +------------------+
+| Per-user Settings |---->----------+-------->     | user_credentials  |
+| (OpenAI, etc.)    |                              | table (encrypted) |
++-------------------+                              +------------------+
 
-## Phase A (Foundation) - In Progress
-- A1: Database migration ✅ (tenants, memberships, permissions, credentials tables)
-- A2: Edge helpers ✅ (tenant.ts, tables.ts constants, ToolContext update)
-- A3: AuthContext tenant integration 🔲 (blocked by TS errors above)
-- A4: Tenant admin UI 🔲
+Retrieval priority (decrypt_credential_with_fallback):
+  1. system_credentials (platform-wide, admin-managed)
+  2. user_credentials (individual)
+```
 
-## Phase B-E: Deferred until Phase A completes
+All services covered: OpenAI, Anthropic, Gemini, Manus, Figma, Confluence
