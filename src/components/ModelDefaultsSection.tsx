@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { ChevronDown, ChevronUp, Info, ExternalLink } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,53 +15,70 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
-const ModelDefaultsSection = ({ 
+interface ModelInfo {
+  model_id: string;
+  model_name?: string;
+  provider?: string;
+}
+
+interface ModelDefaults {
+  [key: string]: string | boolean | undefined;
+}
+
+interface ModelDefaultsSectionProps {
+  model: ModelInfo;
+  defaults: ModelDefaults | null;
+  onUpdateDefault: (modelId: string, field: string, value: string | boolean) => Promise<void>;
+}
+
+type SettingKey = keyof typeof ALL_SETTINGS;
+
+const DEFAULT_VALUES: Record<string, string | boolean> = {
+  temperature: '0.7',
+  max_tokens: '2048',
+  max_completion_tokens: '4096',
+  top_p: '1',
+  frequency_penalty: '0',
+  presence_penalty: '0',
+  n: '1',
+  stream: false,
+  response_format: '{"type": "text"}',
+};
+
+const ModelDefaultsSection: React.FC<ModelDefaultsSectionProps> = ({ 
   model, 
   defaults, 
   onUpdateDefault 
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const modelDefaults = defaults || {};
+  const modelDefaults: ModelDefaults = defaults || {};
   const { isSettingSupported } = useModels();
   
-  // Local state for input values to enable blur-based saving
-  const [localValues, setLocalValues] = useState({});
+  const [localValues, setLocalValues] = useState<Record<string, string>>({});
 
-  const handleCheckChange = useCallback(async (field, checked) => {
+  const handleCheckChange = useCallback(async (field: string, checked: boolean) => {
     await onUpdateDefault(model.model_id, `${field}_on`, checked);
     
-    // Set default value if enabling and no value exists
-      if (checked && !modelDefaults[field]) {
-      // CRITICAL: max_tokens (GPT-4) and max_completion_tokens (GPT-5) are separate settings
-      const defaultValues = {
-        temperature: '0.7',
-        max_tokens: '2048',
-        max_completion_tokens: '4096',
-        top_p: '1',
-        frequency_penalty: '0',
-        presence_penalty: '0',
-        n: '1',
-        stream: false,
-        response_format: '{"type": "text"}',
-      };
-      if (defaultValues[field] !== undefined) {
-        await onUpdateDefault(model.model_id, field, defaultValues[field]);
+    if (checked && !modelDefaults[field]) {
+      const defaultVal = DEFAULT_VALUES[field];
+      if (defaultVal !== undefined) {
+        await onUpdateDefault(model.model_id, field, defaultVal);
       }
     }
   }, [model.model_id, modelDefaults, onUpdateDefault]);
 
-  const handleValueChange = useCallback((field, value) => {
+  const handleValueChange = useCallback((field: string, value: string) => {
     setLocalValues(prev => ({ ...prev, [field]: value }));
   }, []);
 
-  const handleValueBlur = useCallback(async (field) => {
+  const handleValueBlur = useCallback(async (field: string) => {
     const value = localValues[field];
     if (value !== undefined && value !== modelDefaults[field]) {
       await onUpdateDefault(model.model_id, field, value);
     }
   }, [model.model_id, localValues, modelDefaults, onUpdateDefault]);
 
-  const settingKeys = Object.keys(ALL_SETTINGS);
+  const settingKeys = Object.keys(ALL_SETTINGS) as SettingKey[];
   const enabledCount = settingKeys.filter(key => modelDefaults[`${key}_on`]).length;
 
   return (
@@ -93,8 +110,7 @@ const ModelDefaultsSection = ({
                 const settingInfo = ALL_SETTINGS[field];
                 const supported = isSettingSupported(field, model.model_id);
                 const isEnabled = modelDefaults[`${field}_on`] || false;
-                const dbValue = modelDefaults[field] || '';
-                // Use local value if exists, otherwise use database value
+                const dbValue = (modelDefaults[field] as string) || '';
                 const value = localValues[field] !== undefined ? localValues[field] : dbValue;
 
                 return (
@@ -110,8 +126,8 @@ const ModelDefaultsSection = ({
                     <div className="flex items-center space-x-2 mb-2">
                       <Checkbox
                         id={`${model.model_id}-${field}-checkbox`}
-                        checked={isEnabled}
-                        onCheckedChange={(checked) => handleCheckChange(field, checked)}
+                        checked={Boolean(isEnabled)}
+                        onCheckedChange={(checked) => handleCheckChange(field, Boolean(checked))}
                         disabled={!supported}
                       />
                       <label 

@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Check, Loader2, Lock, Globe, UserPlus, Trash2, Users } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Loader2, Lock, Globe, UserPlus, Trash2, Users } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSupabase } from '../hooks/useSupabase';
@@ -14,16 +13,38 @@ import { toast } from '@/components/ui/sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { trackEvent } from '@/lib/posthog';
 
+interface UserProfile {
+  id: string;
+  email: string;
+  display_name: string | null;
+  avatar_url: string | null;
+}
+
+interface ResourceShare {
+  id: string;
+  shared_with_user_id: string;
+  permission: string;
+  created_at: string;
+}
+
+interface OwnerChangeContentProps {
+  promptRowId: string;
+  currentOwnerId: string;
+  onOwnerChanged?: () => void;
+  onClose?: () => void;
+  isPrivate?: boolean;
+}
+
 // Standalone content component for use in external popovers
-export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged, onClose, isPrivate: initialIsPrivate }) => {
+export const OwnerChangeContent: React.FC<OwnerChangeContentProps> = ({ promptRowId, currentOwnerId, onOwnerChanged, onClose, isPrivate: initialIsPrivate }) => {
   const supabase = useSupabase();
   const { user, isAdmin } = useAuth();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [profiles, setProfiles] = useState([]);
-  const [filteredUsers, setFilteredUsers] = useState([]);
+  const [profiles, setProfiles] = useState<UserProfile[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<UserProfile[]>([]);
   const [isPrivate, setIsPrivate] = useState(initialIsPrivate ?? false);
-  const [shares, setShares] = useState([]);
+  const [shares, setShares] = useState<ResourceShare[]>([]);
   const [sharesLoading, setSharesLoading] = useState(true);
   const [shareEmail, setShareEmail] = useState('');
   const [sharePermission, setSharePermission] = useState('read');
@@ -32,13 +53,13 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
   const isOwner = user?.id === currentOwnerId;
   const canManage = isAdmin || isOwner;
 
-  // Fetch all profiles on mount
   useEffect(() => {
     if (supabase) {
       fetchProfiles();
       fetchShares();
       fetchPrivacyStatus();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase, promptRowId]);
 
   const fetchPrivacyStatus = async () => {
@@ -50,7 +71,8 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
         .maybeSingle();
 
       if (error) throw error;
-      setIsPrivate(data?.is_private ?? false);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setIsPrivate((data as any)?.is_private ?? false);
     } catch (error) {
       console.error('Error fetching privacy status:', error);
     }
@@ -63,7 +85,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
         .select('id, email, display_name, avatar_url');
 
       if (error) throw error;
-      setProfiles(data || []);
+      setProfiles((data as unknown as UserProfile[]) || []);
     } catch (error) {
       console.error('Error fetching profiles:', error);
     }
@@ -79,7 +101,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
         .eq('resource_id', promptRowId);
 
       if (error) throw error;
-      setShares(data || []);
+      setShares((data as unknown as ResourceShare[]) || []);
     } catch (error) {
       console.error('Error fetching shares:', error);
     } finally {
@@ -100,7 +122,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
     setFilteredUsers(filtered);
   }, [email, profiles, currentOwnerId]);
 
-  const handleChangeOwner = useCallback(async (newOwnerId) => {
+  const handleChangeOwner = useCallback(async (newOwnerId: string) => {
     if (!supabase || !promptRowId) return;
     
     setIsLoading(true);
@@ -125,7 +147,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
     }
   }, [supabase, promptRowId, onOwnerChanged, onClose]);
 
-  const handlePrivacyToggle = async (newValue) => {
+  const handlePrivacyToggle = async (newValue: boolean) => {
     if (!supabase || !promptRowId) return;
 
     setIsPrivate(newValue);
@@ -143,7 +165,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
     } catch (error) {
       console.error('Error updating privacy:', error);
       toast.error('Failed to update privacy setting');
-      setIsPrivate(!newValue); // Revert on error
+      setIsPrivate(!newValue);
     }
   };
 
@@ -165,7 +187,6 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
       return;
     }
 
-    // Check if already shared
     if (shares.some(s => s.shared_with_user_id === targetUser.id)) {
       toast.error('Already shared with this user');
       return;
@@ -197,7 +218,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
     }
   };
 
-  const handleRemoveShare = async (shareId) => {
+  const handleRemoveShare = async (shareId: string) => {
     if (!supabase) return;
 
     try {
@@ -217,7 +238,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
     }
   };
 
-  const handleUpdateSharePermission = async (shareId, newPermission) => {
+  const handleUpdateSharePermission = async (shareId: string, newPermission: string) => {
     if (!supabase) return;
 
     try {
@@ -237,7 +258,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
     }
   };
 
-  const getSharedUserInfo = (userId) => {
+  const getSharedUserInfo = (userId: string): UserProfile | undefined => {
     return profiles.find(p => p.id === userId);
   };
 
@@ -315,7 +336,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
                       onClick={() => setShareEmail(u.email)}
                     >
                       <Avatar className="h-5 w-5">
-                        <AvatarImage src={u.avatar_url} alt={u.display_name || u.email} />
+                        <AvatarImage src={u.avatar_url ?? undefined} alt={u.display_name || u.email} />
                         <AvatarFallback className="text-[10px]">
                           {(u.display_name || u.email)?.[0]?.toUpperCase()}
                         </AvatarFallback>
@@ -357,7 +378,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
                   <div key={share.id} className="flex items-center justify-between gap-2 p-1.5 rounded-md bg-muted/30">
                     <div className="flex items-center gap-2 min-w-0">
                       <Avatar className="h-5 w-5">
-                        <AvatarImage src={sharedUser?.avatar_url} alt={sharedUser?.display_name || sharedUser?.email} />
+                        <AvatarImage src={sharedUser?.avatar_url ?? undefined} alt={sharedUser?.display_name || sharedUser?.email} />
                         <AvatarFallback className="text-[10px]">
                           {(sharedUser?.display_name || sharedUser?.email)?.[0]?.toUpperCase()}
                         </AvatarFallback>
@@ -437,7 +458,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Avatar className="h-5 w-5">
-                    <AvatarImage src={u.avatar_url} alt={u.display_name || u.email} />
+                    <AvatarImage src={u.avatar_url ?? undefined} alt={u.display_name || u.email} />
                     <AvatarFallback className="text-[10px]">
                       {(u.display_name || u.email)?.[0]?.toUpperCase()}
                     </AvatarFallback>

@@ -30,9 +30,9 @@ interface InlineModelSettingsProps {
 }
 
 const InlineModelSettings: React.FC<InlineModelSettingsProps> = ({ 
-  model, 
+  model: _model, 
   defaults, 
-  onUpdateDefault,
+  onUpdateDefault: _onUpdateDefault,
   isExpanded,
   onToggleExpand
 }) => {

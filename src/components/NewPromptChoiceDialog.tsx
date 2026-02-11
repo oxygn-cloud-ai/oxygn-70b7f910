@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { FileText, LayoutTemplate, Search, ArrowRight, Loader2, Settings2, Lock, ArrowLeft, Plus, X } from 'lucide-react';
 import {
   Dialog,
@@ -34,9 +34,7 @@ import { toast } from '@/components/ui/sonner';
 import { trackEvent } from '@/lib/posthog';
 import { generatePositionAtEnd } from '@/utils/lexPosition';
 import {
-  SYSTEM_VARIABLES,
   SYSTEM_VARIABLE_TYPES,
-  isSystemVariable,
   isStaticSystemVariable,
   resolveStaticVariables,
   categorizeVariables,
@@ -44,7 +42,29 @@ import {
 } from '@/config/systemVariables';
 import { CONTEXT_VARIABLE_KEYS } from '@/config/contextVariables';
 
-const NewPromptChoiceDialog = ({
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type TemplateStructure = any;
+
+interface VariableInfo {
+  label: string;
+  description: string;
+  type: string;
+  options?: string[];
+  placeholder?: string;
+  required: boolean;
+  isSystem: boolean;
+  hasDefault?: boolean;
+}
+
+interface NewPromptChoiceDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  parentId?: string | null;
+  onCreatePlain: () => void;
+  onPromptCreated?: (rowId: string) => void;
+}
+
+const NewPromptChoiceDialog: React.FC<NewPromptChoiceDialogProps> = ({
   isOpen, 
   onClose, 
   parentId = null,
@@ -53,23 +73,22 @@ const NewPromptChoiceDialog = ({
 }) => {
   const { templates, isLoading, extractTemplateVariables, fetchTemplates } = useTemplates();
   
-  // Refetch templates when dialog opens to ensure fresh data
   useEffect(() => {
     if (isOpen) {
       fetchTemplates();
     }
   }, [isOpen, fetchTemplates]);
-  const { user, profile } = useAuth();
-  const [step, setStep] = useState('select'); // 'select' | 'variables'
-  const [selectedTemplate, setSelectedTemplate] = useState(null);
-  const [variableValues, setVariableValues] = useState({});
+  const { user, userProfile } = useAuth();
+  const [step, setStep] = useState<'select' | 'variables'>('select');
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateStructure | null>(null);
+  const [variableValues, setVariableValues] = useState<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreating, setIsCreating] = useState(false);
-  const [promptNameOverride, setPromptNameOverride] = useState(''); // User can override final prompt name
-  const [policyBaseName, setPolicyBaseName] = useState(''); // Dedicated input for policy name (replaces q.policy.name)
+  const [promptNameOverride, setPromptNameOverride] = useState('');
+  const [policyBaseName, setPolicyBaseName] = useState('');
   const isTopLevel = parentId === null;
 
-  const filteredTemplates = templates.filter(t => 
+  const filteredTemplates = templates.filter((t: TemplateStructure) => 
     t.template_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     t.category?.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -80,50 +99,41 @@ const NewPromptChoiceDialog = ({
     handleClose();
   };
 
-  const handleSelectTemplate = (template) => {
+  const handleSelectTemplate = (template: TemplateStructure) => {
     setSelectedTemplate(template);
-    const variables = extractTemplateVariables(template.structure);
+    const variables = extractTemplateVariables(template.structure) as string[];
     
-    // Initialize with default values from variable_definitions and system variables
-    const initialValues = {};
+    const initialValues: Record<string, string> = {};
     const variableDefs = template.variable_definitions || [];
     
-    // Add static system variables
     const staticVars = resolveStaticVariables({
-      user: profile || { email: user?.email },
+      user: userProfile || { email: user?.email },
     });
     Object.assign(initialValues, staticVars);
     
-    // Reset policyBaseName when selecting new template
     setPolicyBaseName('');
     
-    // Initialize user-defined and input system variables
-    variables.forEach(v => {
+    variables.forEach((v: string) => {
       if (isStaticSystemVariable(v)) {
-        // Already handled above
         return;
       }
       
-      // Skip runtime variables - they're only available during cascade execution
       const sysVar = getSystemVariable(v);
       if (sysVar?.type === SYSTEM_VARIABLE_TYPES.RUNTIME) {
         return;
       }
       
       if (sysVar) {
-        // System input variable - start empty
         initialValues[v] = '';
       } else {
-        // User-defined variable - check for default
-        const def = variableDefs.find(d => d.name === v);
+        const def = variableDefs.find((d: TemplateStructure) => d.name === v);
         initialValues[v] = def?.default || '';
       }
     });
     
     setVariableValues(initialValues);
-    setPromptNameOverride(''); // Reset override when selecting new template
+    setPromptNameOverride('');
     
-    // Always show variables step for top-level (need policy name) or if there are variables
     if (isTopLevel || variables.length > 0) {
       setStep('variables');
     } else {
@@ -131,7 +141,6 @@ const NewPromptChoiceDialog = ({
     }
   };
 
-  // Generate the computed prompt name based on policyBaseName
   const computedPromptName = useMemo(() => {
     const baseName = policyBaseName.trim();
     if (!baseName) return '';
@@ -142,46 +151,44 @@ const NewPromptChoiceDialog = ({
     return baseName;
   }, [policyBaseName, isTopLevel]);
 
-  // Use override if set, otherwise use computed
   const finalPromptName = promptNameOverride || computedPromptName;
 
-  const handleVariableChange = (name, value) => {
+  const handleVariableChange = (name: string, value: string) => {
     setVariableValues(prev => ({ ...prev, [name]: value }));
   };
 
-  const replaceVariables = (text, values) => {
-    if (!text || typeof text !== 'string') return text;
+  const replaceVariables = (text: string | null | undefined, values: Record<string, string>): string => {
+    if (!text || typeof text !== 'string') return text ?? '';
     let result = text;
     Object.entries(values).forEach(([name, value]) => {
-      // Escape special regex characters in variable name (for names with dots like q.policy.name)
       const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      result = result.replace(new RegExp(`\\{\\{${escapedName}\\}\\}`, 'g'), value);
+      result = result.replace(new RegExp(`\\{\\{${escapedName}\\}\\}`, 'g'), value as string);
     });
     return result;
   };
 
-  const handleCreateFromTemplate = async (template, values) => {
+  const handleCreateFromTemplate = async (template: TemplateStructure | null, values: Record<string, string> | null) => {
     setIsCreating(true);
     try {
       const structure = template?.structure || selectedTemplate?.structure;
       const vars = values || variableValues;
       const templateRowId = template?.row_id || selectedTemplate?.row_id;
 
-      // Fetch all needed settings at once
       const { data: settingsData } = await supabase
         .from(import.meta.env.VITE_SETTINGS_TBL)
-        .select('setting_key, setting_value')
-        .in('setting_key', ['default_model', 'def_assistant_instructions']);
+        .select('setting_key, setting_value');
 
-      const settingsMap = {};
-      settingsData?.forEach(row => {
-        settingsMap[row.setting_key] = row.setting_value;
-      });
+      const settingsMap: Record<string, string> = {};
+      if (settingsData) {
+        (settingsData as TemplateStructure[]).forEach((row: TemplateStructure) => {
+          settingsMap[row.setting_key as string] = row.setting_value as string;
+        });
+      }
 
       const defaultModelId = settingsMap.default_model;
       const defAssistantInstructions = settingsMap.def_assistant_instructions || '';
 
-      let modelDefaults = {};
+      const modelDefaults: Record<string, string | boolean> = {};
       if (defaultModelId) {
         const { data: defaultsData } = await supabase
           .from(import.meta.env.VITE_MODEL_DEFAULTS_TBL)
@@ -190,12 +197,14 @@ const NewPromptChoiceDialog = ({
           .maybeSingle();
 
         if (defaultsData) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const typedDefaults = defaultsData as any;
           const defaultSettingFields = ['temperature', 'max_tokens', 'top_p', 'frequency_penalty', 
             'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user'];
           
           defaultSettingFields.forEach(field => {
-            if (defaultsData[`${field}_on`]) {
-              modelDefaults[field] = defaultsData[field];
+            if (typedDefaults[`${field}_on`]) {
+              modelDefaults[field] = typedDefaults[field] as string;
               modelDefaults[`${field}_on`] = true;
             }
           });
@@ -205,7 +214,7 @@ const NewPromptChoiceDialog = ({
         }
       }
 
-      const getLastPositionKey = async (parentRowId) => {
+      const getLastPositionKey = async (parentRowId: string | null): Promise<string | null> => {
         let query = supabase
           .from(import.meta.env.VITE_PROMPTS_TBL)
           .select('position_lex')
@@ -221,15 +230,16 @@ const NewPromptChoiceDialog = ({
         }
         
         const { data } = await query;
-        return data?.[0]?.position_lex || null;
+        const rows = data as TemplateStructure[] | null;
+        return rows?.[0]?.position_lex || null;
       };
 
-      const createConversation = async (promptRowId, promptName, instructions = '') => {
+      const createConversation = async (promptRowId: string, promptName: string, instructions = '') => {
         try {
-          const insertData = {
+          const insertData: Record<string, unknown> = {
             prompt_row_id: promptRowId,
             name: promptName,
-            status: 'active', // Responses API is always ready
+            status: 'active',
             api_version: 'responses',
             use_global_tool_defaults: true,
           };
@@ -249,20 +259,22 @@ const NewPromptChoiceDialog = ({
             return;
           }
 
-          console.log('Created conversation record:', conversation.row_id);
+          console.log('Created conversation record:', (conversation as TemplateStructure)?.row_id);
         } catch (error) {
           console.error('Error creating conversation:', error);
         }
       };
 
-      // Track created prompts for context variables
       let topLevelPromptName = '';
+      const positionKeyCache = new Map<string | null, string | null>();
       
-      // Track position keys for sequential generation within each parent
-      const positionKeyCache = new Map();
-      
-      const createPromptFromStructure = async (promptStructure, parentRowId, childIndex = 0, parentPromptName = '', overridePromptName = null) => {
-        // Get or generate position key for this parent level
+      const createPromptFromStructure = async (
+        promptStructure: TemplateStructure, 
+        parentRowId: string | null, 
+        _childIndex = 0, 
+        parentPromptName = '', 
+        overridePromptName: string | null = null
+      ): Promise<TemplateStructure> => {
         let currentLastKey = positionKeyCache.get(parentRowId);
         if (currentLastKey === undefined) {
           currentLastKey = await getLastPositionKey(parentRowId);
@@ -272,34 +284,26 @@ const NewPromptChoiceDialog = ({
         
         const isTopLevelPrompt = parentRowId === null;
 
-        // Build the prompt name
-        let promptName;
+        let promptName: string;
         
         if (isTopLevelPrompt && overridePromptName) {
-          // Use the user-provided prompt name for top-level
           promptName = overridePromptName;
         } else {
           promptName = replaceVariables(promptStructure.prompt_name, vars);
         }
         
-        // Store for context variables
         if (isTopLevelPrompt) {
           topLevelPromptName = promptName;
         }
         
-        // Update context variables for this prompt
-        const contextVars = {
+        const contextVars: Record<string, string> = {
           ...vars,
           'q.toplevel.prompt.name': topLevelPromptName,
           'q.parent.prompt.name': parentPromptName,
         };
 
-// Build system_variables object - ONLY store user-editable variables, NOT context variables
-        // Context variables (q.prompt.name, q.toplevel.prompt.name, etc.) should be resolved at runtime
-        // CONTEXT_VARIABLE_KEYS imported from @/config/contextVariables
-        const systemVariables = {};
+        const systemVariables: Record<string, string> = {};
         Object.entries(contextVars).forEach(([key, value]) => {
-          // Only store user-editable q.* variables, skip context variables
           if (key.startsWith('q.') && 
               value !== undefined && value !== null && value !== '' &&
               !CONTEXT_VARIABLE_KEYS.includes(key)) {
@@ -307,8 +311,7 @@ const NewPromptChoiceDialog = ({
           }
         });
 
-        // Start with model defaults, then overlay template-specific settings
-        const insertData = {
+        const insertData: Record<string, unknown> = {
           parent_row_id: parentRowId,
           prompt_name: promptName,
           input_admin_prompt: replaceVariables(promptStructure.input_admin_prompt, contextVars),
@@ -319,10 +322,9 @@ const NewPromptChoiceDialog = ({
           position_lex: newPositionLex,
           is_deleted: false,
           system_variables: Object.keys(systemVariables).length > 0 ? systemVariables : null,
-          ...modelDefaults, // Apply system model defaults first
+          ...modelDefaults,
         };
 
-        // Override with template-specific model/settings fields if present
         const settingsFields = [
           'model', 'model_on',
           'temperature', 'temperature_on',
@@ -344,7 +346,6 @@ const NewPromptChoiceDialog = ({
           }
         });
 
-        // Assistant settings
         if (promptStructure.is_assistant !== undefined) {
           insertData.is_assistant = promptStructure.is_assistant;
         } else if (isTopLevel) {
@@ -361,7 +362,6 @@ const NewPromptChoiceDialog = ({
           insertData.default_child_thread_strategy = promptStructure.default_child_thread_strategy;
         }
 
-        // Tools
         if (promptStructure.web_search_on !== undefined) {
           insertData.web_search_on = promptStructure.web_search_on;
         }
@@ -384,25 +384,24 @@ const NewPromptChoiceDialog = ({
           throw new Error('Insert succeeded but no data returned');
         }
 
+        const typedData = data as TemplateStructure;
+
         if (isTopLevelPrompt && (insertData.is_assistant || insertData.is_assistant === undefined)) {
-          // Use template instructions, fallback to default assistant instructions
           const templateInstructions = replaceVariables(promptStructure.assistant_instructions, contextVars);
           const conversationInstructions = templateInstructions || defAssistantInstructions || '';
-          createConversation(data.row_id, insertData.prompt_name, conversationInstructions);
+          createConversation(typedData.row_id, insertData.prompt_name as string, conversationInstructions);
         }
 
         if (promptStructure.children?.length > 0) {
-          // Reset cache for this parent's children to start fresh
-          positionKeyCache.delete(data.row_id);
+          positionKeyCache.delete(typedData.row_id);
           for (let i = 0; i < promptStructure.children.length; i++) {
-            await createPromptFromStructure(promptStructure.children[i], data.row_id, i, promptName, null);
+            await createPromptFromStructure(promptStructure.children[i], typedData.row_id, i, promptName, null);
           }
         }
 
-        return data;
+        return typedData;
       };
 
-      // Use finalPromptName for top-level prompts
       const createdPrompt = await createPromptFromStructure(structure, parentId, 0, '', finalPromptName);
       
       toast.success('Prompt created from template');
@@ -428,16 +427,14 @@ const NewPromptChoiceDialog = ({
     onClose();
   };
 
-  const templateVariables = selectedTemplate ? extractTemplateVariables(selectedTemplate.structure) : [];
+  const templateVariables = (selectedTemplate ? extractTemplateVariables(selectedTemplate.structure) : []) as string[];
   
-  // Categorize variables
   const { systemStatic, systemInput, systemRuntime, userDefined } = useMemo(() => 
     categorizeVariables(templateVariables), 
     [templateVariables]
   );
 
-  // Get variable info for display
-  const getVariableInfo = (varName) => {
+  const getVariableInfo = (varName: string): VariableInfo => {
     const sysVar = getSystemVariable(varName);
     if (sysVar) {
       return {
@@ -451,8 +448,7 @@ const NewPromptChoiceDialog = ({
       };
     }
     
-    // User-defined variable
-    const def = selectedTemplate?.variable_definitions?.find(d => d.name === varName);
+    const def = selectedTemplate?.variable_definitions?.find((d: TemplateStructure) => d.name === varName);
     return {
       label: varName,
       description: def?.description || '',
@@ -464,32 +460,28 @@ const NewPromptChoiceDialog = ({
     };
   };
 
-  // Check if all required variables have values
   const hasValidationErrors = useMemo(() => {
-    // For top-level prompts, require policy base name
     if (isTopLevel && !policyBaseName.trim()) {
       return true;
     }
     
-    // Check system input variables
-    const systemInputErrors = systemInput.some(varName => {
+    const systemInputErrors = systemInput.some((varName: string) => {
       const info = getVariableInfo(varName);
       const value = variableValues[varName] || '';
       return info.required && value.trim() === '';
     });
     
-    // Check user-defined variables
-    const userDefinedErrors = userDefined.some(varName => {
+    const userDefinedErrors = userDefined.some((varName: string) => {
       const info = getVariableInfo(varName);
       const value = variableValues[varName] || '';
       return info.required && value.trim() === '';
     });
     
     return systemInputErrors || userDefinedErrors;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [systemInput, userDefined, variableValues, selectedTemplate, isTopLevel, policyBaseName]);
 
-  // Render a variable input field
-  const renderVariableInput = (varName) => {
+  const renderVariableInput = (varName: string) => {
     const info = getVariableInfo(varName);
     const value = variableValues[varName] || '';
     const showError = info.required && value.trim() === '';
@@ -555,14 +547,13 @@ const NewPromptChoiceDialog = ({
           </DialogTitle>
           {step === 'variables' && (
             <DialogDescription>
-              Fill in the values for template variables in "{selectedTemplate?.template_name}"
+              Fill in the values for template variables in &quot;{selectedTemplate?.template_name}&quot;
             </DialogDescription>
           )}
         </DialogHeader>
 
         {step === 'select' && (
           <>
-            {/* Start from Scratch - Primary Option */}
             <button
               onClick={handleCreatePlain}
               className="group relative flex items-center gap-3 p-3 rounded-lg border-2 border-border bg-card hover:border-primary hover:bg-primary/5 transition-all text-left w-full"
@@ -578,12 +569,11 @@ const NewPromptChoiceDialog = ({
             </button>
 
             <div className="flex items-center gap-2 py-1">
-              <Separator className="flex-1" />
+              <div className="flex-1 h-px bg-border" />
               <span className="text-xs text-muted-foreground px-2">or use a template</span>
-              <Separator className="flex-1" />
+              <div className="flex-1 h-px bg-border" />
             </div>
 
-            {/* Search Templates */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -594,7 +584,6 @@ const NewPromptChoiceDialog = ({
               />
             </div>
 
-            {/* Template List */}
             <ScrollArea className="h-[240px] pr-2">
               {isLoading ? (
                 <div className="flex items-center justify-center py-8 text-muted-foreground">
@@ -607,8 +596,8 @@ const NewPromptChoiceDialog = ({
                 </div>
               ) : (
                 <div className="space-y-1.5">
-                  {filteredTemplates.map(template => {
-                    const variables = extractTemplateVariables(template.structure);
+                  {filteredTemplates.map((template: TemplateStructure) => {
+                    const variables = extractTemplateVariables(template.structure) as string[];
                     const childCount = template.structure?.children?.length || 0;
                     
                     return (
@@ -658,7 +647,6 @@ const NewPromptChoiceDialog = ({
           <>
             <ScrollArea className="max-h-[400px] pr-4">
               <div className="space-y-6">
-                {/* Prompt Name Section - Only for top-level prompts */}
                 {isTopLevel && (
                   <div className="space-y-4">
                     <div className="flex items-center gap-2">
@@ -666,7 +654,6 @@ const NewPromptChoiceDialog = ({
                       <h3 className="text-sm font-medium">Prompt Name</h3>
                     </div>
                     <div className="space-y-4 pl-6">
-                      {/* Policy Base Name input */}
                       <div className="space-y-2">
                         <Label htmlFor="policy-base-name" className="flex items-center gap-2">
                           <Badge variant="default" className="font-mono text-xs">Policy Name</Badge>
@@ -680,7 +667,6 @@ const NewPromptChoiceDialog = ({
                           value={policyBaseName}
                           onChange={(e) => {
                             setPolicyBaseName(e.target.value);
-                            // Reset override when policy name changes so computed name updates
                             setPromptNameOverride('');
                           }}
                           placeholder="Enter policy name (e.g., Travel Insurance)"
@@ -691,14 +677,13 @@ const NewPromptChoiceDialog = ({
                         )}
                       </div>
                       
-                      {/* Final Prompt Name (editable) */}
                       {policyBaseName.trim() && (
                         <div className="space-y-2">
                           <Label htmlFor="final-prompt-name" className="flex items-center gap-2">
                             <Badge variant="secondary" className="font-mono text-xs">Final Prompt Name</Badge>
                           </Label>
                           <p className="text-xs text-muted-foreground">
-                            Auto-generated with "(Master) (DRAFT)" suffix. You can edit this if needed.
+                            Auto-generated with &quot;(Master) (DRAFT)&quot; suffix. You can edit this if needed.
                           </p>
                           <Input
                             id="final-prompt-name"
@@ -713,7 +698,6 @@ const NewPromptChoiceDialog = ({
                   </div>
                 )}
 
-                {/* System Input Variables */}
                 {systemInput.length > 0 && (
                   <div className="space-y-4">
                     <div className="flex items-center gap-2">
@@ -726,7 +710,6 @@ const NewPromptChoiceDialog = ({
                   </div>
                 )}
                 
-                {/* User-Defined Variables */}
                 {userDefined.length > 0 && (
                   <div className="space-y-4">
                     {(systemInput.length > 0 || isTopLevel) && <Separator />}
@@ -740,7 +723,6 @@ const NewPromptChoiceDialog = ({
                   </div>
                 )}
                 
-                {/* Static System Variables (read-only info) */}
                 {systemStatic.length > 0 && (
                   <div className="space-y-3">
                     <Separator />
@@ -751,7 +733,7 @@ const NewPromptChoiceDialog = ({
                     <div className="pl-6 space-y-2">
                       <TooltipProvider>
                         <div className="flex flex-wrap gap-2">
-                          {systemStatic.map(varName => {
+                          {systemStatic.map((varName: string) => {
                             const sysVar = getSystemVariable(varName);
                             const value = variableValues[varName] || '';
                             return (
@@ -774,7 +756,6 @@ const NewPromptChoiceDialog = ({
                   </div>
                 )}
                 
-                {/* Runtime System Variables (info only - resolved during cascade) */}
                 {systemRuntime.length > 0 && (
                   <div className="space-y-3">
                     <Separator />
@@ -788,7 +769,7 @@ const NewPromptChoiceDialog = ({
                       </p>
                       <TooltipProvider>
                         <div className="flex flex-wrap gap-2">
-                          {systemRuntime.map(varName => {
+                          {systemRuntime.map((varName: string) => {
                             const sysVar = getSystemVariable(varName);
                             return (
                               <Tooltip key={varName}>
