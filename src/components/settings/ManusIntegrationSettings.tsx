@@ -10,9 +10,21 @@ import { parseApiError } from "@/utils/apiErrorUtils";
 import { trackEvent } from '@/lib/posthog';
 import { 
   Save, Trash2, ExternalLink, Loader2, 
-  Zap, Key, Bot, CheckCircle, XCircle
+  Zap, Key, Bot, CheckCircle, XCircle, ShieldCheck
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+
+interface ConnectionStatusResult {
+  success: boolean;
+  message: string;
+}
+
+interface KeyValidationResult {
+  success: boolean;
+  message: string;
+  fingerprint?: string;
+  projectCount?: number;
+}
 
 const ManusIntegrationSettings = () => {
   const { 
@@ -20,6 +32,7 @@ const ManusIntegrationSettings = () => {
     setCredential, 
     deleteCredential,
     isServiceConfigured,
+    isSystemKeyActive,
     isLoading: isCredLoading 
   } = useUserCredentials();
   
@@ -27,13 +40,13 @@ const ManusIntegrationSettings = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState(null);
-  const [keyValidation, setKeyValidation] = useState(null);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatusResult | null>(null);
+  const [keyValidation, setKeyValidation] = useState<KeyValidationResult | null>(null);
   const [isWebhookRegistered, setIsWebhookRegistered] = useState(false);
   
   const hasCredentials = isServiceConfigured('manus');
+  const systemKeyActive = isSystemKeyActive('manus');
 
-  // Fetch credential status on mount
   useEffect(() => {
     getCredentialStatus('manus');
   }, [getCredentialStatus]);
@@ -46,11 +59,10 @@ const ManusIntegrationSettings = () => {
     }
     setIsSaving(true);
     try {
-      // Save trimmed key to prevent whitespace/newline issues
       await setCredential('manus', 'api_key', trimmedKey);
       toast.success('Manus API key saved securely');
       setApiKey('');
-      setConnectionStatus(null); // Reset status after saving new key
+      setConnectionStatus(null);
       await getCredentialStatus('manus');
       trackEvent('manus_credentials_saved');
     } catch (error) {
@@ -72,7 +84,7 @@ const ManusIntegrationSettings = () => {
       setIsWebhookRegistered(false);
       await getCredentialStatus('manus');
       trackEvent('manus_credentials_deleted');
-    } catch (error) {
+    } catch {
       toast.error('Failed to remove API key');
     } finally {
       setIsSaving(false);
@@ -117,7 +129,7 @@ const ManusIntegrationSettings = () => {
         toast.error('Connection test failed', { description: parsed.message });
       }
     } catch (err) {
-      const parsed = parseApiError(err.message);
+      const parsed = parseApiError(err instanceof Error ? err.message : 'Unknown error');
       setKeyValidation({ success: false, message: parsed.title });
       toast.error('Connection test failed', { description: parsed.message });
     } finally {
@@ -137,7 +149,6 @@ const ManusIntegrationSettings = () => {
         toast.error(parsed.title, { description: parsed.message });
         sonnerToast.error(parsed.title, { description: parsed.message });
       } else if (data?.error) {
-        // Edge function returned an error in the response body (string or object)
         const errorMsg = typeof data.error === 'string' 
           ? data.error 
           : data.error?.message || JSON.stringify(data.error);
@@ -146,7 +157,6 @@ const ManusIntegrationSettings = () => {
         toast.error(parsed.title, { description: parsed.message });
         sonnerToast.error(parsed.title, { description: parsed.message });
       } else if (data?.message && !data?.success) {
-        // Some edge functions return { message: "error" } format
         const parsed = parseApiError(data.message);
         setConnectionStatus({ success: false, message: parsed.title });
         toast.error(parsed.title, { description: parsed.message });
@@ -165,7 +175,7 @@ const ManusIntegrationSettings = () => {
         sonnerToast.error(parsed.title, { description: parsed.message });
       }
     } catch (err) {
-      const parsed = parseApiError(err.message);
+      const parsed = parseApiError(err instanceof Error ? err.message : 'Unknown error');
       setConnectionStatus({ success: false, message: parsed.title });
       toast.error(parsed.title, { description: parsed.message });
       sonnerToast.error(parsed.title, { description: parsed.message });
@@ -182,20 +192,22 @@ const ManusIntegrationSettings = () => {
           <Bot className="h-5 w-5 text-on-surface-variant" />
           <div className="flex-1">
             <h4 className="text-body-sm text-on-surface font-medium">
-              {hasCredentials ? 'Configured' : 'Not Connected'}
+              {systemKeyActive ? 'System Key Active' : hasCredentials ? 'Configured' : 'Not Connected'}
             </h4>
             <p className="text-[10px] text-on-surface-variant">
-              Manus AI - Agentic task automation
+              {systemKeyActive
+                ? 'A system-wide key is configured by your administrator'
+                : 'Manus AI - Agentic task automation'}
             </p>
           </div>
           <div className="flex items-center gap-2">
             {keyValidation && (
-              <span className={`text-[10px] flex items-center gap-1 ${keyValidation.success ? 'text-green-600' : 'text-red-500'}`}>
+              <span className={`text-[10px] flex items-center gap-1 ${keyValidation.success ? 'text-success' : 'text-destructive'}`}>
                 {keyValidation.success ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
                 {keyValidation.message}
               </span>
             )}
-            {hasCredentials && (
+            {hasCredentials && !systemKeyActive && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -209,85 +221,91 @@ const ManusIntegrationSettings = () => {
                 <TooltipContent className="text-[10px]">Test connection</TooltipContent>
               </Tooltip>
             )}
-            {hasCredentials ? (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">Active</span>
+            {systemKeyActive ? (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary flex items-center gap-1">
+                <ShieldCheck className="h-3 w-3" /> System
+              </span>
+            ) : hasCredentials ? (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-success/10 text-success">Active</span>
             ) : (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600">Not Set</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-warning/10 text-warning">Not Set</span>
             )}
           </div>
         </div>
       </SettingCard>
 
-      {/* Credentials Card */}
-      <SettingCard label="API Key">
-        <div className="flex items-center gap-3 mb-3">
-          <Key className="h-5 w-5 text-on-surface-variant" />
-          <div className="flex-1">
-            <h4 className="text-body-sm text-on-surface font-medium">
-              {hasCredentials ? 'API Key Configured' : 'Add API Key'}
-            </h4>
-            <p className="text-[10px] text-on-surface-variant">
-              {hasCredentials 
-                ? 'Your Manus API key is stored securely' 
-                : 'Get your API key from manus.ai dashboard'}
-            </p>
-          </div>
-        </div>
-        
-        <div className="space-y-3">
-          <SettingRow label="API Key" description="Your Manus API key">
-            <div className="flex items-center gap-2">
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder={hasCredentials ? "••••••••" : "Enter API key"}
-                autoComplete="off"
-                className="h-8 w-48 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary"
-              />
+      {/* Credentials Card - hidden when system key is active */}
+      {!systemKeyActive && (
+        <SettingCard label="API Key">
+          <div className="flex items-center gap-3 mb-3">
+            <Key className="h-5 w-5 text-on-surface-variant" />
+            <div className="flex-1">
+              <h4 className="text-body-sm text-on-surface font-medium">
+                {hasCredentials ? 'API Key Configured' : 'Add API Key'}
+              </h4>
+              <p className="text-[10px] text-on-surface-variant">
+                {hasCredentials 
+                  ? 'Your Manus API key is stored securely' 
+                  : 'Get your API key from manus.ai dashboard'}
+              </p>
             </div>
-          </SettingRow>
+          </div>
           
-          <div className="flex items-center justify-between pt-2">
-            <a 
-              href="https://manus.ai/dashboard" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-[10px] text-primary hover:underline flex items-center gap-1"
-            >
-              Get API Key <ExternalLink className="h-3 w-3" />
-            </a>
-            <div className="flex items-center gap-2">
-              {hasCredentials && (
+          <div className="space-y-3">
+            <SettingRow label="API Key" description="Your Manus API key">
+              <div className="flex items-center gap-2">
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder={hasCredentials ? "••••••••" : "Enter API key"}
+                  autoComplete="off"
+                  className="h-8 w-48 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            </SettingRow>
+            
+            <div className="flex items-center justify-between pt-2">
+              <a 
+                href="https://manus.ai/dashboard" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-[10px] text-primary hover:underline flex items-center gap-1"
+              >
+                Get API Key <ExternalLink className="h-3 w-3" />
+              </a>
+              <div className="flex items-center gap-2">
+                {hasCredentials && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={handleDeleteCredentials}
+                        disabled={isSaving || isCredLoading}
+                        className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08] hover:text-destructive disabled:opacity-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-[10px]">Remove API key</TooltipContent>
+                  </Tooltip>
+                )}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
-                      onClick={handleDeleteCredentials}
-                      disabled={isSaving || isCredLoading}
-                      className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08] hover:text-destructive disabled:opacity-50"
+                      onClick={handleSaveCredentials}
+                      disabled={isSaving || isCredLoading || !apiKey.trim()}
+                      className="w-8 h-8 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08] disabled:opacity-50"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent className="text-[10px]">Remove API key</TooltipContent>
+                  <TooltipContent className="text-[10px]">Save API key</TooltipContent>
                 </Tooltip>
-              )}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={handleSaveCredentials}
-                    disabled={isSaving || isCredLoading || !apiKey.trim()}
-                    className="w-8 h-8 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08] disabled:opacity-50"
-                  >
-                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent className="text-[10px]">Save API key</TooltipContent>
-              </Tooltip>
+              </div>
             </div>
           </div>
-        </div>
-      </SettingCard>
+        </SettingCard>
+      )}
 
       {/* Webhook Registration Card */}
       {hasCredentials && (
@@ -298,7 +316,7 @@ const ManusIntegrationSettings = () => {
           >
             <div className="flex items-center gap-2">
               {connectionStatus && (
-                <span className={`text-[10px] ${connectionStatus.success ? 'text-green-600' : 'text-red-500'}`}>
+                <span className={`text-[10px] ${connectionStatus.success ? 'text-success' : 'text-destructive'}`}>
                   {connectionStatus.message}
                 </span>
               )}

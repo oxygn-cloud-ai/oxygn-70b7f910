@@ -8,7 +8,7 @@ import { parseApiError } from "@/utils/apiErrorUtils";
 import { trackEvent } from '@/lib/posthog';
 import { 
   Save, Trash2, ExternalLink, Loader2, 
-  Key, Bot, CheckCircle, XCircle
+  Key, Bot, CheckCircle, XCircle, ShieldCheck
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -23,6 +23,7 @@ const AnthropicIntegrationSettings = () => {
     setCredential, 
     deleteCredential,
     isServiceConfigured,
+    isSystemKeyActive,
     isLoading: isCredLoading 
   } = useUserCredentials();
   
@@ -32,6 +33,7 @@ const AnthropicIntegrationSettings = () => {
   const [keyValidation, setKeyValidation] = useState<KeyValidation | null>(null);
   
   const hasCredentials = isServiceConfigured('anthropic');
+  const systemKeyActive = isSystemKeyActive('anthropic');
 
   useEffect(() => {
     getCredentialStatus('anthropic');
@@ -43,14 +45,11 @@ const AnthropicIntegrationSettings = () => {
       toast.error('API key is required');
       return;
     }
-    
-    // Anthropic keys typically start with sk-ant
     if (!trimmedKey.startsWith('sk-ant')) {
       toast.warning('Unusual key format', {
         description: 'Anthropic keys typically start with "sk-ant"'
       });
     }
-    
     setIsSaving(true);
     try {
       await setCredential('anthropic', 'api_key', trimmedKey);
@@ -76,7 +75,7 @@ const AnthropicIntegrationSettings = () => {
       setKeyValidation(null);
       await getCredentialStatus('anthropic');
       trackEvent('anthropic_credentials_deleted');
-    } catch (error) {
+    } catch {
       toast.error('Failed to remove API key');
     } finally {
       setIsSaving(false);
@@ -128,10 +127,12 @@ const AnthropicIntegrationSettings = () => {
           <Bot className="h-5 w-5 text-on-surface-variant" />
           <div className="flex-1">
             <h4 className="text-body-sm text-on-surface font-medium">
-              {hasCredentials ? 'Configured' : 'Not Connected'}
+              {systemKeyActive ? 'System Key Active' : hasCredentials ? 'Configured' : 'Not Connected'}
             </h4>
             <p className="text-[10px] text-on-surface-variant">
-              Claude AI - Anthropic's flagship models
+              {systemKeyActive
+                ? 'A system-wide key is configured by your administrator'
+                : 'Claude AI - Anthropic\'s flagship models'}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -141,7 +142,7 @@ const AnthropicIntegrationSettings = () => {
                 {keyValidation.message}
               </span>
             )}
-            {hasCredentials && (
+            {hasCredentials && !systemKeyActive && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -155,7 +156,11 @@ const AnthropicIntegrationSettings = () => {
                 <TooltipContent className="text-[10px]">Test connection</TooltipContent>
               </Tooltip>
             )}
-            {hasCredentials ? (
+            {systemKeyActive ? (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary flex items-center gap-1">
+                <ShieldCheck className="h-3 w-3" /> System
+              </span>
+            ) : hasCredentials ? (
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-success/10 text-success">Active</span>
             ) : (
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-warning/10 text-warning">Not Set</span>
@@ -164,76 +169,78 @@ const AnthropicIntegrationSettings = () => {
         </div>
       </SettingCard>
 
-      {/* Credentials Card */}
-      <SettingCard label="API Key">
-        <div className="flex items-center gap-3 mb-3">
-          <Key className="h-5 w-5 text-on-surface-variant" />
-          <div className="flex-1">
-            <h4 className="text-body-sm text-on-surface font-medium">
-              {hasCredentials ? 'API Key Configured' : 'Add API Key'}
-            </h4>
-            <p className="text-[10px] text-on-surface-variant">
-              {hasCredentials 
-                ? 'Your Anthropic API key is stored securely' 
-                : 'Get your API key from console.anthropic.com'}
-            </p>
-          </div>
-        </div>
-        
-        <div className="space-y-3">
-          <SettingRow label="API Key" description="Your Anthropic API key">
-            <div className="flex items-center gap-2">
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder={hasCredentials ? "••••••••" : "sk-ant-..."}
-                autoComplete="off"
-                className="h-8 w-48 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary"
-              />
+      {/* Credentials Card - hidden when system key is active */}
+      {!systemKeyActive && (
+        <SettingCard label="API Key">
+          <div className="flex items-center gap-3 mb-3">
+            <Key className="h-5 w-5 text-on-surface-variant" />
+            <div className="flex-1">
+              <h4 className="text-body-sm text-on-surface font-medium">
+                {hasCredentials ? 'API Key Configured' : 'Add API Key'}
+              </h4>
+              <p className="text-[10px] text-on-surface-variant">
+                {hasCredentials 
+                  ? 'Your Anthropic API key is stored securely' 
+                  : 'Get your API key from console.anthropic.com'}
+              </p>
             </div>
-          </SettingRow>
+          </div>
           
-          <div className="flex items-center justify-between pt-2">
-            <a 
-              href="https://console.anthropic.com/settings/keys" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-[10px] text-primary hover:underline flex items-center gap-1"
-            >
-              Get API Key <ExternalLink className="h-3 w-3" />
-            </a>
-            <div className="flex items-center gap-2">
-              {hasCredentials && (
+          <div className="space-y-3">
+            <SettingRow label="API Key" description="Your Anthropic API key">
+              <div className="flex items-center gap-2">
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder={hasCredentials ? "••••••••" : "sk-ant-..."}
+                  autoComplete="off"
+                  className="h-8 w-48 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            </SettingRow>
+            
+            <div className="flex items-center justify-between pt-2">
+              <a 
+                href="https://console.anthropic.com/settings/keys" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-[10px] text-primary hover:underline flex items-center gap-1"
+              >
+                Get API Key <ExternalLink className="h-3 w-3" />
+              </a>
+              <div className="flex items-center gap-2">
+                {hasCredentials && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={handleDeleteCredentials}
+                        disabled={isSaving || isCredLoading}
+                        className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08] hover:text-destructive disabled:opacity-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-[10px]">Remove API key</TooltipContent>
+                  </Tooltip>
+                )}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
-                      onClick={handleDeleteCredentials}
-                      disabled={isSaving || isCredLoading}
-                      className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08] hover:text-destructive disabled:opacity-50"
+                      onClick={handleSaveCredentials}
+                      disabled={isSaving || isCredLoading || !apiKey.trim()}
+                      className="w-8 h-8 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08] disabled:opacity-50"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent className="text-[10px]">Remove API key</TooltipContent>
+                  <TooltipContent className="text-[10px]">Save API key</TooltipContent>
                 </Tooltip>
-              )}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={handleSaveCredentials}
-                    disabled={isSaving || isCredLoading || !apiKey.trim()}
-                    className="w-8 h-8 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08] disabled:opacity-50"
-                  >
-                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent className="text-[10px]">Save API key</TooltipContent>
-              </Tooltip>
+              </div>
             </div>
           </div>
-        </div>
-      </SettingCard>
+        </SettingCard>
+      )}
 
       {/* Info Card */}
       <SettingCard label="About Claude">
