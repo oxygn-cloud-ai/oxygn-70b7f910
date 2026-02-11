@@ -1,7 +1,12 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
-const SettingCard = React.forwardRef(({ 
+interface SettingCardProps extends React.HTMLAttributes<HTMLDivElement> {
+  label?: string;
+  children?: React.ReactNode;
+}
+
+const SettingCard = React.forwardRef<HTMLDivElement, SettingCardProps>(({ 
   className, 
   label, 
   children, 
@@ -26,3 +31,4 @@ const SettingCard = React.forwardRef(({
 SettingCard.displayName = "SettingCard"
 
 export { SettingCard }
+export type { SettingCardProps }

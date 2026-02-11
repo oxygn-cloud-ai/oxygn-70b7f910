@@ -35,6 +35,12 @@ export const TABLES = {
   JIRA_PROJECTS: getEnv('JIRA_PROJECTS_TBL', 'q_jira_projects'),
   JIRA_ISSUES: getEnv('JIRA_ISSUES_TBL', 'q_jira_issues'),
   FIGMA_FILES: getEnv('FIGMA_FILES_TBL', 'q_figma_files'),
+  // IAM / Multi-tenant tables
+  TENANTS: getEnv('TENANTS_TBL', 'tenants'),
+  TENANT_MEMBERSHIPS: getEnv('TENANT_MEMBERSHIPS_TBL', 'tenant_memberships'),
+  TENANT_PERMISSIONS: getEnv('TENANT_PERMISSIONS_TBL', 'tenant_permissions'),
+  TENANT_CREDENTIALS: getEnv('TENANT_CREDENTIALS_TBL', 'tenant_credentials'),
+  SHARED_LIBRARY: getEnv('SHARED_LIBRARY_TBL', 'shared_library'),
 } as const;
 
 // Helper to build FK relationship strings dynamically

@@ -1,7 +1,12 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
-const SettingInput = React.forwardRef(({ 
+interface SettingInputProps extends React.HTMLAttributes<HTMLDivElement> {
+  children?: React.ReactNode;
+  minWidth?: string;
+}
+
+const SettingInput = React.forwardRef<HTMLDivElement, SettingInputProps>(({ 
   className, 
   children,
   minWidth = "min-w-44",
@@ -22,3 +27,4 @@ const SettingInput = React.forwardRef(({
 SettingInput.displayName = "SettingInput"
 
 export { SettingInput }
+export type { SettingInputProps }

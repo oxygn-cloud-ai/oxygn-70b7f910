@@ -21,7 +21,14 @@ interface AuthContextValue {
   session: Session | null;
   loading: boolean;
   isAdmin: boolean;
+  isPlatformAdmin: boolean;
   userProfile: UserProfile | null;
+  // Tenant context
+  tenantId: string | null;
+  tenantName: string | null;
+  tenantRole: 'owner' | 'admin' | 'editor' | 'viewer' | null;
+  tenantStatus: string | null;
+  isTenantAdmin: boolean;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
   signInWithPassword: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUpWithPassword: (email: string, password: string) => Promise<{ error: Error | null }>;
@@ -46,6 +53,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  // Tenant state
+  const [tenantId, setTenantId] = useState<string | null>(null);
+  const [tenantName, setTenantName] = useState<string | null>(null);
+  const [tenantRole, setTenantRole] = useState<AuthContextValue['tenantRole']>(null);
+  const [tenantStatus, setTenantStatus] = useState<string | null>(null);
+  const [isTenantAdmin, setIsTenantAdmin] = useState(false);
   const mountedRef = useRef(true);
   const initialSessionHandledRef = useRef(false);
 

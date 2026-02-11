@@ -2143,6 +2143,42 @@ export type Database = {
         }
         Relationships: []
       }
+      shared_library: {
+        Row: {
+          created_at: string
+          description: string | null
+          item_id: string
+          item_type: string
+          metadata: Json | null
+          published_by: string | null
+          source_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          item_id?: string
+          item_type: string
+          metadata?: Json | null
+          published_by?: string | null
+          source_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          item_id?: string
+          item_type?: string
+          metadata?: Json | null
+          published_by?: string | null
+          source_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       system_credentials: {
         Row: {
           created_at: string | null
@@ -2170,6 +2206,162 @@ export type Database = {
           service_type?: string
           set_by?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      tenant_credentials: {
+        Row: {
+          created_at: string
+          credential_key: string
+          credential_value: string
+          row_id: string
+          service_type: string
+          set_by: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          credential_key: string
+          credential_value: string
+          row_id?: string
+          service_type: string
+          set_by: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          credential_key?: string
+          credential_value?: string
+          row_id?: string
+          service_type?: string
+          set_by?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_credentials_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      tenant_memberships: {
+        Row: {
+          created_at: string
+          invited_by: string | null
+          membership_id: string
+          role: Database["public"]["Enums"]["tenant_role"]
+          status: string
+          tenant_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          invited_by?: string | null
+          membership_id?: string
+          role?: Database["public"]["Enums"]["tenant_role"]
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          invited_by?: string | null
+          membership_id?: string
+          role?: Database["public"]["Enums"]["tenant_role"]
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_memberships_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      tenant_permissions: {
+        Row: {
+          created_at: string
+          permission_id: string
+          permission_key: string
+          permission_value: Json
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          permission_id?: string
+          permission_key: string
+          permission_value?: Json
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          permission_id?: string
+          permission_key?: string
+          permission_value?: Json
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_permissions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      tenants: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          domain: string | null
+          domain_verified: boolean
+          plan: string | null
+          slug: string
+          status: string
+          tenant_id: string
+          tenant_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          domain?: string | null
+          domain_verified?: boolean
+          plan?: string | null
+          slug: string
+          status?: string
+          tenant_id?: string
+          tenant_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          domain?: string | null
+          domain_verified?: boolean
+          plan?: string | null
+          slug?: string
+          status?: string
+          tenant_id?: string
+          tenant_name?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -2291,6 +2483,15 @@ export type Database = {
         }
         Returns: string
       }
+      decrypt_credential_with_tenant_fallback: {
+        Args: {
+          p_encryption_key: string
+          p_key: string
+          p_service: string
+          p_user_id: string
+        }
+        Returns: string
+      }
       encrypt_credential: {
         Args: {
           p_encryption_key: string
@@ -2310,12 +2511,35 @@ export type Database = {
         }
         Returns: undefined
       }
+      encrypt_tenant_credential: {
+        Args: {
+          p_encryption_key: string
+          p_key: string
+          p_service: string
+          p_tenant_id: string
+          p_value: string
+        }
+        Returns: undefined
+      }
       get_user_email: { Args: { _user_id: string }; Returns: string }
+      get_user_tenant_id: { Args: never; Returns: string }
+      has_tenant_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["tenant_role"]
+          _tenant_id: string
+        }
+        Returns: boolean
+      }
       is_admin: { Args: { _user_id?: string }; Returns: boolean }
       is_allowed_domain: { Args: { email: string }; Returns: boolean }
+      is_tenant_admin: { Args: { _tenant_id: string }; Returns: boolean }
       owns_prompt: {
         Args: { _prompt_id: string; _user_id: string }
         Returns: boolean
+      }
+      role_level: {
+        Args: { _role: Database["public"]["Enums"]["tenant_role"] }
+        Returns: number
       }
       rollback_prompt_version: {
         Args: {
@@ -2343,9 +2567,11 @@ export type Database = {
           topic: string
         }[]
       }
+      user_belongs_to_tenant: { Args: { _tenant_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "user"
+      tenant_role: "owner" | "admin" | "editor" | "viewer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2474,6 +2700,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      tenant_role: ["owner", "admin", "editor", "viewer"],
     },
   },
 } as const

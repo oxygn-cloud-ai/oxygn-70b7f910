@@ -63,6 +63,12 @@ export interface ToolContext {
   // Determines access to admin-only tools (knowledge management, etc.)
   isAdmin?: boolean;
   
+  // Tenant context (populated on request init)
+  tenantContext?: {
+    tenantId: string;
+    role: 'owner' | 'admin' | 'editor' | 'viewer';
+  };
+  
   // Family mode context (populated when scope is 'family')
   familyContext?: {
     promptRowId: string;
