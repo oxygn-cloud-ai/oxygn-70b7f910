@@ -46,7 +46,7 @@ src/
 
 supabase/
 ├── functions/      # 26 Deno Edge Functions (see below)
-└── migrations/     # ~99 SQL migrations
+└── migrations/     # ~100 SQL migrations
 ```
 
 ### Components Structure (`src/components/`)
@@ -61,7 +61,7 @@ supabase/
 | `export/` | 6+ | Export drawers, selectors, Confluence types |
 | `icons/` | 1 | Custom icons (Slack) |
 | `layout/` | 12 | Navigation rail, panels, search modal, top bar |
-| `settings/` | 5 | Integration settings (OpenAI, Anthropic, Figma, Manus) |
+| `settings/` | 6 | Integration settings (OpenAI, Anthropic, Figma, Manus) + SystemApiKeysSection |
 | `shared/` | 8 | Markdown areas, resizable areas, skeletons, TipTap utils |
 | `tabs/` | 4 | Conversation, prompt fields, templates, variables tabs |
 | `templates/` | 10 | Template editor, JSON schema, preview, import/export |
@@ -118,6 +118,8 @@ Non-provider components also nested within: `PostHogPageView`, `NavigationGuard`
 
 **Knowledge Base**: Admin-facing knowledge management with embedding generation (`batch-embeddings`, `generate-embedding` edge functions) and CRUD via `KnowledgeManager`/`KnowledgeEditor` components.
 
+**Credential Hierarchy**: Multi-tier credential system where admin-set system credentials (`system_credentials` table) take priority over user-provided credentials (`user_credentials`). The `decrypt_credential_with_fallback()` DB function checks system keys first, then falls back to user keys. Managed via `credentials-manager` edge function, `useUserCredentials` hook, and `SystemApiKeysSection` admin UI.
+
 **Action Executors** (`src/services/actionExecutors/`): 6 action types that run after prompt execution:
 - `createChildrenText` / `createChildrenJson` / `createChildrenSections` - Create child prompts
 - `createTemplate` - Generate templates from output
@@ -165,6 +167,7 @@ Non-provider components also nested within: `PostHogPageView`, `NavigationGuard`
 - `q_app_knowledge` - Knowledge base content
 - `q_jira_projects` / `q_jira_issues` - Jira integration
 - `q_figma_files` - Figma integration
+- `system_credentials` - Admin-managed, workspace-wide API keys (encrypted, RLS admin-only)
 - `profiles` - User profiles
 - `projects` - Project records
 
@@ -188,7 +191,7 @@ All require JWT except where noted:
 **Resource Management:**
 - `conversation-manager` - Manages assistants, files, vector stores, file_search
 - `thread-manager` - Manages conversation threads and family threads
-- `credentials-manager` - Encrypted credential storage for all providers (OpenAI, Anthropic, Confluence, Manus, Figma, Gemini)
+- `credentials-manager` - Encrypted credential storage for all providers (OpenAI, Anthropic, Confluence, Manus, Figma, Gemini); supports both user and system (admin) credentials with fallback hierarchy
 - `resource-health` - Monitors health of files and resources
 
 **Knowledge & Embeddings:**
@@ -244,3 +247,5 @@ No `.env.example` exists — refer to `.env` for required variables.
 - Thread `purpose` column separates "chat" vs "run" tracks
 - Action/communication node type exclusivity enforced by database constraints
 - TypeScript strict mode enabled with no unused variables/parameters
+- Credentials encrypted at rest via `pgp_sym_encrypt`; frontend only sees status flags, never raw keys
+- System credentials (admin-managed) override user credentials via DB fallback functions
