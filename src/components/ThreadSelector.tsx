@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Plus, Trash2, MessageSquare, Info, ExternalLink } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +35,24 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { trackEvent } from '@/lib/posthog';
 
+interface ThreadData {
+  row_id: string;
+  name?: string;
+  message_count?: number;
+  last_message_at?: string;
+}
+
+interface ThreadSelectorProps {
+  threads: ThreadData[];
+  activeThread: ThreadData | null;
+  onSelectThread: (thread: ThreadData) => void;
+  onCreateThread: (name: string) => Promise<void>;
+  onDeleteThread: (rowId: string) => void;
+  threadMode: string;
+  onThreadModeChange: (mode: string) => void;
+  isLoading: boolean;
+}
+
 const ThreadSelector = ({
   threads,
   activeThread,
@@ -44,7 +62,7 @@ const ThreadSelector = ({
   threadMode,
   onThreadModeChange,
   isLoading,
-}) => {
+}: ThreadSelectorProps) => {
   const [isCreating, setIsCreating] = useState(false);
 
   const handleCreateThread = async () => {
@@ -127,7 +145,7 @@ const ThreadSelector = ({
             <Select
               value={activeThread?.row_id || ''}
               onValueChange={(value) => {
-                const thread = threads.find((t) => t.row_id === value);
+                const thread = threads.find((t: ThreadData) => t.row_id === value);
                 if (thread) onSelectThread(thread);
               }}
               disabled={isLoading || threads.length === 0}
@@ -136,7 +154,7 @@ const ThreadSelector = ({
                 <SelectValue placeholder={threads.length === 0 ? "No threads available" : "Select a thread"} />
               </SelectTrigger>
               <SelectContent>
-                {threads.map((thread) => (
+                {threads.map((thread: ThreadData) => (
                   <SelectItem key={thread.row_id} value={thread.row_id}>
                     {thread.name || `Thread ${thread.row_id.slice(0, 8)}`}
                   </SelectItem>
