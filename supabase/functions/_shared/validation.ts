@@ -113,7 +113,7 @@ export function validateThreadManagerInput(body: any): ValidationResult {
 export function validateCredentialsManagerInput(body: any): ValidationResult {
   const { action } = body;
   
-  const validActions = ['get_status', 'set', 'delete', 'list_services', 'get_decrypted'];
+  const validActions = ['get_status', 'set', 'delete', 'list_services', 'get_decrypted', 'set_system', 'delete_system', 'get_system_status'];
   if (!isValidAction(action, validActions)) {
     return { valid: false, error: `Invalid action. Use: ${validActions.join(', ')}` };
   }
@@ -123,6 +123,7 @@ export function validateCredentialsManagerInput(body: any): ValidationResult {
   
   switch (action) {
     case 'get_status':
+    case 'get_system_status':
       if (!body.service || !validServicePattern.test(body.service)) {
         return { valid: false, error: 'service is required and must be alphanumeric with max 50 characters' };
       }
@@ -140,8 +141,29 @@ export function validateCredentialsManagerInput(body: any): ValidationResult {
         return { valid: false, error: 'value is required and must be a string with max 10000 characters' };
       }
       break;
+
+    case 'set_system':
+      if (!body.service || !validServicePattern.test(body.service)) {
+        return { valid: false, error: 'service is required and must be alphanumeric with max 50 characters' };
+      }
+      if (!isNonEmptyString(body.key, 100)) {
+        return { valid: false, error: 'key is required and must be a string with max 100 characters' };
+      }
+      if (!isNonEmptyString(body.value, 10000)) {
+        return { valid: false, error: 'value is required and must be a string with max 10000 characters' };
+      }
+      break;
       
     case 'delete':
+      if (!body.service || !validServicePattern.test(body.service)) {
+        return { valid: false, error: 'service is required and must be alphanumeric with max 50 characters' };
+      }
+      if (body.key !== undefined && !isOptionalString(body.key, 100)) {
+        return { valid: false, error: 'key must be a string with max 100 characters' };
+      }
+      break;
+
+    case 'delete_system':
       if (!body.service || !validServicePattern.test(body.service)) {
         return { valid: false, error: 'service is required and must be alphanumeric with max 50 characters' };
       }

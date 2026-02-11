@@ -49,7 +49,6 @@ serve(async (req) => {
     }
 
     const userId = validation.user?.id;
-    // Removed verbose email logging for security
 
     let requestBody: any;
     try {
@@ -71,7 +70,6 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-    // Action logged only in error cases below
 
     // Service role client for database operations
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -88,6 +86,12 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Helper: check if user is admin
+    const checkIsAdmin = async (): Promise<boolean> => {
+      const { data } = await supabase.rpc('is_admin', { _user_id: userId });
+      return data === true;
+    };
+
     switch (action) {
       // Get credential status for a service (returns boolean flags, never actual values)
       case 'get_status': {
@@ -100,7 +104,7 @@ serve(async (req) => {
           );
         }
 
-        // Query for all credential keys for this service
+        // Query user credentials
         const { data: credentials, error } = await supabase
           .from('user_credentials')
           .select('credential_key')
@@ -112,6 +116,15 @@ serve(async (req) => {
           throw error;
         }
 
+        // Query system credentials for this service
+        const { data: systemCreds } = await supabase
+          .from('system_credentials')
+          .select('credential_key')
+          .eq('service_type', service);
+
+        const systemKeys = systemCreds?.map(c => c.credential_key) || [];
+        const systemConfigured = systemKeys.length > 0;
+
         // Return which keys are configured (never return values)
         const configuredKeys = credentials?.map(c => c.credential_key) || [];
         const status: Record<string, boolean> = {};
@@ -121,28 +134,23 @@ serve(async (req) => {
           status.email = configuredKeys.includes('email');
           status.api_token = configuredKeys.includes('api_token');
         } else if (service === 'manus') {
-          // For manus, check for api_key
           status.api_key = configuredKeys.includes('api_key');
         } else if (service === 'gemini' || service === 'google') {
-          // For gemini/google, check for api_key
           status.api_key = configuredKeys.includes('api_key');
-      } else if (service === 'openai') {
-          // For openai, check for api_key
+        } else if (service === 'openai') {
           status.api_key = configuredKeys.includes('api_key');
         } else if (service === 'anthropic') {
-          // For anthropic, check for api_key
           status.api_key = configuredKeys.includes('api_key');
+        } else if (service === 'figma') {
+          status.access_token = configuredKeys.includes('access_token');
         } else {
-          // Generic: just indicate which keys exist
           configuredKeys.forEach(key => {
             status[key] = true;
           });
         }
 
-        // Status check successful - no logging needed
-
         return new Response(
-          JSON.stringify({ success: true, status }),
+          JSON.stringify({ success: true, status, systemConfigured }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -158,7 +166,6 @@ serve(async (req) => {
           );
         }
 
-        // Use the encrypt_credential RPC function
         const { error } = await supabase.rpc('encrypt_credential', {
           p_user_id: userId,
           p_service: service,
@@ -171,8 +178,6 @@ serve(async (req) => {
           console.error('[credentials-manager] Error encrypting credential:', error);
           throw error;
         }
-
-        // Credential saved successfully - no logging of keys
 
         return new Response(
           JSON.stringify({ success: true }),
@@ -208,8 +213,6 @@ serve(async (req) => {
           throw error;
         }
 
-        // Credential deleted successfully - no logging of keys
-
         return new Response(
           JSON.stringify({ success: true }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -228,7 +231,6 @@ serve(async (req) => {
           throw error;
         }
 
-        // Get unique service types
         const services = [...new Set(data?.map(c => c.service_type) || [])];
 
         return new Response(
@@ -238,6 +240,7 @@ serve(async (req) => {
       }
 
       // Get decrypted credential value (for internal service-to-service calls)
+      // Now uses decrypt_credential_with_fallback to check system credentials first
       case 'get_decrypted': {
         const { service, key } = params;
 
@@ -248,24 +251,8 @@ serve(async (req) => {
           );
         }
 
-        // Check if credential exists
-        const { data: credential } = await supabase
-          .from('user_credentials')
-          .select('credential_value')
-          .eq('user_id', userId)
-          .eq('service_type', service)
-          .eq('credential_key', key)
-          .maybeSingle();
-
-        if (!credential) {
-          return new Response(
-            JSON.stringify({ success: false, error: 'Credential not found' }),
-            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        // Decrypt using RPC
-        const { data: decrypted, error: decryptError } = await supabase.rpc('decrypt_credential', {
+        // Use fallback function: system_credentials first, then user_credentials
+        const { data: decrypted, error: decryptError } = await supabase.rpc('decrypt_credential_with_fallback', {
           p_user_id: userId,
           p_service: service,
           p_key: key,
@@ -280,8 +267,135 @@ serve(async (req) => {
           );
         }
 
+        if (!decrypted) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Credential not found' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
         return new Response(
           JSON.stringify({ success: true, value: decrypted }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // ====== System credential actions (admin-only) ======
+
+      // Set a system-wide credential (admin only)
+      case 'set_system': {
+        const { service, key, value } = params;
+
+        if (!service || !key || !value) {
+          return new Response(
+            JSON.stringify({ error: 'Service, key, and value are required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const isAdmin = await checkIsAdmin();
+        if (!isAdmin) {
+          return new Response(
+            JSON.stringify({ error: 'Admin access required' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { error } = await supabase.rpc('encrypt_system_credential', {
+          p_service: service,
+          p_key: key,
+          p_value: value,
+          p_encryption_key: encryptionKey
+        });
+
+        if (error) {
+          console.error('[credentials-manager] Error encrypting system credential:', error);
+          throw error;
+        }
+
+        return new Response(
+          JSON.stringify({ success: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Delete a system-wide credential (admin only)
+      case 'delete_system': {
+        const { service, key } = params;
+
+        if (!service) {
+          return new Response(
+            JSON.stringify({ error: 'Service type required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const isAdmin = await checkIsAdmin();
+        if (!isAdmin) {
+          return new Response(
+            JSON.stringify({ error: 'Admin access required' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        let query = supabase
+          .from('system_credentials')
+          .delete()
+          .eq('service_type', service);
+
+        if (key) {
+          query = query.eq('credential_key', key);
+        }
+
+        const { error } = await query;
+
+        if (error) {
+          console.error('[credentials-manager] Error deleting system credential:', error);
+          throw error;
+        }
+
+        return new Response(
+          JSON.stringify({ success: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Get system credential status (any authenticated user can check)
+      case 'get_system_status': {
+        const { service } = params;
+
+        if (!service) {
+          return new Response(
+            JSON.stringify({ error: 'Service type required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { data: systemCreds, error } = await supabase
+          .from('system_credentials')
+          .select('credential_key')
+          .eq('service_type', service);
+
+        if (error) {
+          console.error('[credentials-manager] Error fetching system status:', error);
+          throw error;
+        }
+
+        const systemKeys = systemCreds?.map(c => c.credential_key) || [];
+        const status: Record<string, boolean> = {};
+
+        if (service === 'confluence') {
+          status.email = systemKeys.includes('email');
+          status.api_token = systemKeys.includes('api_token');
+        } else if (service === 'figma') {
+          status.access_token = systemKeys.includes('access_token');
+        } else {
+          // Default: check for api_key
+          status.api_key = systemKeys.includes('api_key');
+        }
+
+        return new Response(
+          JSON.stringify({ success: true, status }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }

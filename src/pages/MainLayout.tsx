@@ -85,7 +85,7 @@ const MainLayout = () => {
   
   // Real data hooks
   const supabase = useSupabase();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isAdmin } = useAuth();
   const { treeData, isLoading: isLoadingTree, refreshTreeData } = useTreeData(supabase);
   const { 
     handleAddItem, 
@@ -1273,6 +1273,7 @@ const MainLayout = () => {
         hoveredNav={activeNav}
         activeSubItem={activeSubItem}
         onItemClick={(itemId) => handleSubmenuClick(activeNav, itemId)}
+        isAdmin={isAdmin}
       />
     );
   };
