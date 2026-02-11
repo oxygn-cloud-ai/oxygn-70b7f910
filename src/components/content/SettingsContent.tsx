@@ -2394,6 +2394,14 @@ const GeminiSection = () => {
   );
 };
 
+// System API Keys Section - lazy loaded
+const SystemApiKeysLazy = React.lazy(() => import('@/components/settings/SystemApiKeysSection'));
+const SystemApiKeysWrapper = () => (
+  <React.Suspense fallback={<div className="p-4 text-on-surface-variant">Loading...</div>}>
+    <SystemApiKeysLazy />
+  </React.Suspense>
+);
+
 // Settings Sections Configuration
 const SETTINGS_SECTIONS = {
   "qonsol": { component: GeneralSection, icon: Settings, title: "General" },
@@ -2407,6 +2415,7 @@ const SETTINGS_SECTIONS = {
   "manus": { component: ManusIntegrationWrapper, icon: Bot, title: "Manus AI" },
   "anthropic": { component: AnthropicIntegrationWrapper, icon: Bot, title: "Anthropic" },
   "figma": { component: FigmaIntegrationWrapper, icon: Figma, title: "Figma" },
+  "system-keys": { component: SystemApiKeysWrapper, icon: Key, title: "System API Keys" },
   "appearance": { component: ThemeSection, icon: Palette, title: "Appearance" },
   "notifications": { component: NotificationsSection, icon: Bell, title: "Notifications" },
   "profile": { component: ProfileSection, icon: User, title: "Profile" },
@@ -2476,6 +2485,8 @@ const SettingsContent = ({
     case 'anthropic':
       return {};
     case 'figma':
+      return {};
+    case 'system-keys':
       return {};
     case 'notifications':
       return commonSettingsProps;

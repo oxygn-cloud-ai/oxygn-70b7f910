@@ -84,7 +84,7 @@ const TemplatesSubmenu = ({ onItemClick, activeSubItem }) => (
 );
 
 // Flat menu layout (no section titles) - matches Health pattern
-const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
+const SettingsSubmenu = ({ onItemClick, activeSubItem, isAdmin = false }) => (
   <div className="p-1.5">
     <div className="flex flex-col gap-0.5">
       <SubmenuItem 
@@ -164,6 +164,15 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
         isActive={activeSubItem === "figma"}
         onClick={() => onItemClick?.("figma")}
       />
+      {isAdmin && (
+        <SubmenuItem 
+          icon={Shield}
+          label="System API Keys" 
+          description="Admin-managed keys"
+          isActive={activeSubItem === "system-keys"}
+          onClick={() => onItemClick?.("system-keys")}
+        />
+      )}
       <SubmenuItem 
         icon={Palette}
         label="Appearance" 
@@ -252,7 +261,7 @@ const HealthSubmenu = ({ onItemClick, activeSubItem }) => (
   </div>
 );
 
-const SubmenuPanel = ({ hoveredNav, activeSubItem, onItemClick }) => {
+const SubmenuPanel = ({ hoveredNav, activeSubItem, onItemClick, isAdmin = false }) => {
   const submenus = {
     templates: TemplatesSubmenu,
     settings: SettingsSubmenu,
@@ -263,10 +272,13 @@ const SubmenuPanel = ({ hoveredNav, activeSubItem, onItemClick }) => {
 
   if (!SubmenuComponent) return null;
 
+  // Pass isAdmin only to settings submenu
+  const extraProps = hoveredNav === 'settings' ? { isAdmin } : {};
+
   return (
     <div className="h-full flex flex-col bg-surface-container-low overflow-hidden">
       <div className="flex-1 overflow-auto scrollbar-thin">
-        <SubmenuComponent onItemClick={onItemClick} activeSubItem={activeSubItem} />
+        <SubmenuComponent onItemClick={onItemClick} activeSubItem={activeSubItem} {...extraProps} />
       </div>
     </div>
   );

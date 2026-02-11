@@ -144,14 +144,14 @@ Deno.serve(async (req) => {
         throw new Error('Encryption key not configured. Please contact administrator.');
       }
 
-      const { data: emailResult } = await supabase.rpc('decrypt_credential', {
+      const { data: emailResult } = await supabase.rpc('decrypt_credential_with_fallback', {
         p_user_id: userId,
         p_service: 'confluence',
         p_key: 'email',
         p_encryption_key: encryptionKey
       });
 
-      const { data: tokenResult } = await supabase.rpc('decrypt_credential', {
+      const { data: tokenResult } = await supabase.rpc('decrypt_credential_with_fallback', {
         p_user_id: userId,
         p_service: 'confluence',
         p_key: 'api_token',

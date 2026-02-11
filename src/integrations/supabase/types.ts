@@ -2143,6 +2143,36 @@ export type Database = {
         }
         Relationships: []
       }
+      system_credentials: {
+        Row: {
+          created_at: string | null
+          credential_key: string
+          credential_value: string
+          row_id: string
+          service_type: string
+          set_by: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          credential_key: string
+          credential_value: string
+          row_id?: string
+          service_type: string
+          set_by: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          credential_key?: string
+          credential_value?: string
+          row_id?: string
+          service_type?: string
+          set_by?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       user_credentials: {
         Row: {
           created_at: string | null
@@ -2252,12 +2282,30 @@ export type Database = {
         }
         Returns: string
       }
+      decrypt_credential_with_fallback: {
+        Args: {
+          p_encryption_key: string
+          p_key: string
+          p_service: string
+          p_user_id: string
+        }
+        Returns: string
+      }
       encrypt_credential: {
         Args: {
           p_encryption_key: string
           p_key: string
           p_service: string
           p_user_id: string
+          p_value: string
+        }
+        Returns: undefined
+      }
+      encrypt_system_credential: {
+        Args: {
+          p_encryption_key: string
+          p_key: string
+          p_service: string
           p_value: string
         }
         Returns: undefined
