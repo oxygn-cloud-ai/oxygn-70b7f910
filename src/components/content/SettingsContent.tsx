@@ -2022,12 +2022,12 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
           </div>
           {systemKeyActive ? (
             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary flex items-center gap-1">
-              <Key className="h-3 w-3" /> System
+              <Sparkles className="h-3 w-3" /> System
             </span>
           ) : isConnected ? (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-success/10 text-success">Active</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-500">Active</span>
           ) : (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-warning/10 text-warning">Incomplete</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-500">Incomplete</span>
           )}
         </div>
 
@@ -2311,12 +2311,12 @@ const GeminiSection = () => {
           </div>
           {systemKeyActive ? (
             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary flex items-center gap-1">
-              <Key className="h-3 w-3" /> System
+              <Sparkles className="h-3 w-3" /> System
             </span>
           ) : isConfigured ? (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-success/10 text-success">Active</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-500">Active</span>
           ) : (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-warning/10 text-warning">Not Set</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-500">Not Set</span>
           )}
         </div>
       </SettingCard>

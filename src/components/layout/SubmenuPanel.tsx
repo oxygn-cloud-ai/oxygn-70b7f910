@@ -24,8 +24,17 @@ import {
   Bot,
   Figma
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
-const SubmenuItem = ({ icon: Icon, label, description, isActive = false, onClick }) => (
+interface SubmenuItemProps {
+  icon: LucideIcon;
+  label: string;
+  description?: string;
+  isActive?: boolean;
+  onClick?: () => void;
+}
+
+const SubmenuItem: React.FC<SubmenuItemProps> = ({ icon: Icon, label, description, isActive = false, onClick }) => (
   <button
     onClick={onClick}
     className={`
@@ -47,8 +56,17 @@ const SubmenuItem = ({ icon: Icon, label, description, isActive = false, onClick
   </button>
 );
 
+interface SubmenuProps {
+  onItemClick?: (item: string) => void;
+  activeSubItem?: string;
+}
+
+interface SettingsSubmenuProps extends SubmenuProps {
+  isAdmin?: boolean;
+}
+
 // Flat menu layout (no section titles) - matches Health pattern
-const TemplatesSubmenu = ({ onItemClick, activeSubItem }) => (
+const TemplatesSubmenu: React.FC<SubmenuProps> = ({ onItemClick, activeSubItem }) => (
   <div className="p-1.5">
     <div className="flex flex-col gap-0.5">
       <SubmenuItem 
@@ -84,7 +102,7 @@ const TemplatesSubmenu = ({ onItemClick, activeSubItem }) => (
 );
 
 // Flat menu layout (no section titles) - matches Health pattern
-const SettingsSubmenu = ({ onItemClick, activeSubItem, isAdmin = false }) => (
+const SettingsSubmenu: React.FC<SettingsSubmenuProps> = ({ onItemClick, activeSubItem, isAdmin = false }) => (
   <div className="p-1.5">
     <div className="flex flex-col gap-0.5">
       <SubmenuItem 
@@ -212,7 +230,7 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem, isAdmin = false }) => (
   </div>
 );
 
-const HealthSubmenu = ({ onItemClick, activeSubItem }) => (
+const HealthSubmenu: React.FC<SubmenuProps> = ({ onItemClick, activeSubItem }) => (
   <div className="p-1.5">
     <div className="flex flex-col gap-0.5">
       <SubmenuItem 
@@ -261,8 +279,15 @@ const HealthSubmenu = ({ onItemClick, activeSubItem }) => (
   </div>
 );
 
-const SubmenuPanel = ({ hoveredNav, activeSubItem, onItemClick, isAdmin = false }) => {
-  const submenus = {
+interface SubmenuPanelProps {
+  hoveredNav: string;
+  activeSubItem?: string;
+  onItemClick?: (item: string) => void;
+  isAdmin?: boolean;
+}
+
+const SubmenuPanel: React.FC<SubmenuPanelProps> = ({ hoveredNav, activeSubItem, onItemClick, isAdmin = false }) => {
+  const submenus: Record<string, React.FC<SubmenuProps & { isAdmin?: boolean }>> = {
     templates: TemplatesSubmenu,
     settings: SettingsSubmenu,
     health: HealthSubmenu,

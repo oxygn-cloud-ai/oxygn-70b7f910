@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import HighlightedTextarea from "@/components/ui/highlighted-textarea";
 import { Label } from "@/components/ui/label";
@@ -14,17 +14,54 @@ import {
 import VariablePicker from './VariablePicker';
 import { TOOLTIPS } from '@/config/labels';
 import { useFieldUndo } from '@/hooks/useFieldUndo';
+import type { LucideIcon } from 'lucide-react';
 
 const AUTOSAVE_DELAY = 500;
 
-const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate, isGenerating, formattedTime, isLinksPage, isReadOnly, hasUnsavedChanges: externalUnsavedChanges, promptId, variables = [], placeholder, familyRootPromptRowId = null }) => {
-  const textareaRef = useRef(null);
-  const containerRef = useRef(null);
-  const saveTimeoutRef = useRef(null);
+interface PromptFieldProps {
+  label: string;
+  tooltip?: string;
+  value: string;
+  onChange?: (value: string) => void;
+  onReset?: () => void;
+  onSave?: (sourceInfo: Record<string, unknown>) => Promise<void>;
+  onCascade?: (label: string) => void;
+  initialValue?: string;
+  onGenerate?: () => void;
+  isGenerating?: boolean;
+  formattedTime?: string;
+  isLinksPage?: boolean;
+  isReadOnly?: boolean;
+  hasUnsavedChanges?: boolean;
+  promptId?: string;
+  variables?: Array<{ name: string; value?: string }>;
+  placeholder?: string;
+  familyRootPromptRowId?: string | null;
+}
+
+interface ActionButtonProps {
+  icon: React.ReactNode;
+  onClick: () => void;
+  tooltip: string;
+  disabled?: boolean;
+  active?: boolean;
+  needsAttention?: boolean;
+}
+
+interface ChevronButtonProps {
+  icon: LucideIcon;
+  onClick: () => void;
+  tooltipText: string;
+}
+
+const PromptField: React.FC<PromptFieldProps> = ({ label, tooltip, value, onChange, onReset: _onReset, onSave, onCascade, initialValue: _initialValue, onGenerate, isGenerating, formattedTime, isLinksPage, isReadOnly, hasUnsavedChanges: _externalUnsavedChanges, promptId, variables = [], placeholder, familyRootPromptRowId = null }) => {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSavingRef = useRef(false);
-  const selectionRef = useRef({ start: null, end: null });
-  const [isLinking, setIsLinking] = useState(false);
-  const [cursorPosition, setCursorPosition] = useState(null);
+  const selectionRef = useRef<{ start: number | null; end: number | null }>({ start: null, end: null });
+  const [_isLinking, setIsLinking] = useState(false);
+  const [cursorPosition, setCursorPosition] = useState<number | null>(null);
   const [contentHeight, setContentHeight] = useState(100);
   const [editValue, setEditValue] = useState(value || '');
   const [lastSavedValue, setLastSavedValue] = useState(value || '');
@@ -39,14 +76,14 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
     hasPreviousValue,
     hasChangedFromOriginal,
     clearUndoStack,
-  } = useFieldUndo(value, promptId);
+  } = useFieldUndo(value, promptId ?? undefined);
   
   // Check if there are unsaved changes
   const hasUnsavedChanges = editValue !== lastSavedValue;
   const canDiscard = hasChangedFromOriginal(editValue);
   
   // Default to collapsed for all fields
-  const [expandState, setExpandState] = useState(() => {
+  const [expandState, setExpandState] = useState<string>(() => {
     if (typeof window === 'undefined') return 'collapsed';
     try {
       const stored = localStorage.getItem(storageKey);
@@ -98,7 +135,7 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
       adjustHeight();
     }
 
-    const handleMessage = (event) => {
+    const handleMessage = (event: MessageEvent) => {
       console.log('Response received from parent window:', event.data);
     };
     window.addEventListener('message', handleMessage);
@@ -144,7 +181,7 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
   }, []);
 
   // Perform save
-  const performSave = useCallback(async (valueToSave) => {
+  const performSave = useCallback(async (valueToSave: string) => {
     if (valueToSave === lastSavedValue) return;
     
     // Push current saved value to undo stack before saving new one
@@ -172,7 +209,7 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
     isSavingRef.current = true;
     
     try {
-      await onSave(sourceInfo);
+      await onSave?.(sourceInfo);
       setLastSavedValue(valueToSave);
       // Also update parent state
       onChange?.(valueToSave);
@@ -247,7 +284,7 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
   }, [getOriginalValue, cancelPendingSave, label, onSave, onChange, clearUndoStack]);
 
   // Handle text change with auto-save debounce
-  const handleTextChange = (newValue) => {
+  const handleTextChange = (newValue: string) => {
     setEditValue(newValue);
     
     // Cancel existing timer
@@ -261,13 +298,13 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
     }, AUTOSAVE_DELAY);
   };
 
-  const handleInsertVariable = (varName) => {
+  const handleInsertVariable = (varName: string) => {
     // Prevent double-wrapping - PromptReferencePicker returns full {{q.ref[UUID].field}} syntax
     const varText = varName.startsWith('{{') ? varName : `{{${varName}}}`;
     const currentValue = editValue || '';
     
     // Priority: ref (synchronous) > textarea DOM > state > end of text
-    let pos;
+    let pos: number;
     if (typeof selectionRef.current.start === 'number') {
       pos = selectionRef.current.start;
     } else if (textareaRef.current && typeof textareaRef.current.selectionStart === 'number') {
@@ -296,13 +333,13 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
   };
 
   // Get cursor position from contenteditable or textarea
-  const getCursorPositionFromElement = (element) => {
-    if (element.selectionStart !== undefined) {
-      return element.selectionStart;
+  const getCursorPositionFromElement = (element: HTMLTextAreaElement | HTMLElement): number => {
+    if ('selectionStart' in element && element.selectionStart !== undefined) {
+      return element.selectionStart as number;
     }
     
     const selection = window.getSelection();
-    if (!selection.rangeCount) return 0;
+    if (!selection || !selection.rangeCount) return 0;
     
     const range = selection.getRangeAt(0);
     const preCaretRange = range.cloneRange();
@@ -318,13 +355,14 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
     return tempDiv.textContent?.length || 0;
   };
 
-  const handleCursorChange = (e) => {
-    const pos = getCursorPositionFromElement(e.target);
+  const handleCursorChange = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    const target = e.target as HTMLTextAreaElement;
+    const pos = getCursorPositionFromElement(target);
     setCursorPosition(pos);
     // Also store in ref synchronously for reliable access during variable insertion
     selectionRef.current = { 
-      start: e.target.selectionStart ?? pos, 
-      end: e.target.selectionEnd ?? pos 
+      start: target.selectionStart ?? pos, 
+      end: target.selectionEnd ?? pos 
     };
   };
   
@@ -335,22 +373,22 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
   };
 
   // Keyboard shortcuts (field-scoped)
-  const handleKeyDown = useCallback((e) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     // Cmd+S - immediate save
     if ((e.metaKey || e.ctrlKey) && e.key === 's') {
       e.preventDefault();
-      e.stopImmediatePropagation();
+      e.stopPropagation();
       handleImmediateSave();
     }
     // Cmd+Z - undo
     if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
       e.preventDefault();
-      e.stopImmediatePropagation();
+      e.stopPropagation();
       handleUndo();
     }
   }, [handleImmediateSave, handleUndo]);
 
-  const ActionButton = ({ icon, onClick, tooltip, disabled, active, needsAttention = false }) => (
+  const ActionButton: React.FC<ActionButtonProps> = ({ icon, onClick, tooltip, disabled = false, active = false, needsAttention = false }) => (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
@@ -377,7 +415,7 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
     </TooltipProvider>
   );
 
-  const ChevronButton = ({ icon: Icon, onClick, tooltipText }) => (
+  const ChevronButton: React.FC<ChevronButtonProps> = ({ icon: Icon, onClick, tooltipText }) => (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
@@ -404,7 +442,7 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
     return 'min-h-[100px]';
   };
 
-  const getFullHeightStyle = () => {
+  const getFullHeightStyle = (): React.CSSProperties => {
     if (expandState === 'full') {
       return { minHeight: `${Math.max(100, contentHeight)}px` };
     }
@@ -492,7 +530,7 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
             <div className="flex items-center mr-1">
               <ActionButton
                 icon={<Sparkles className={`h-4 w-4 ${isGenerating ? 'animate-pulse' : ''}`} />}
-                onClick={onGenerate}
+                onClick={() => onGenerate?.()}
                 tooltip={isGenerating ? `Generating... ${formattedTime}` : 'Generate response'}
                 disabled={isGenerating}
                 active={isGenerating}
@@ -507,20 +545,24 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
           {(label === TOOLTIPS?.promptFields?.inputAdminPrompt?.label || label === TOOLTIPS?.promptFields?.inputUserPrompt?.label || label === 'Context Prompt' || label === 'User Message' || label === 'System Prompt') && !isReadOnly && (
             <VariablePicker 
               onInsert={handleInsertVariable}
-              userVariables={variables}
-              familyRootPromptRowId={familyRootPromptRowId}
+              userVariables={variables as never[]}
+              familyRootPromptRowId={familyRootPromptRowId ?? undefined}
             />
           )}
 
           <ActionButton
             icon={<Link2 className="h-4 w-4" />}
-            onClick={() => onCascade(label)}
+            onClick={() => onCascade?.(label)}
             tooltip="Cascade to children"
+            disabled={false}
+            active={false}
           />
           <ActionButton
             icon={<ClipboardCopy className="h-4 w-4" />}
             onClick={handleCopy}
             tooltip="Copy to clipboard"
+            disabled={false}
+            active={false}
           />
           
           {!isLinksPage && !isReadOnly && (
@@ -531,6 +573,8 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
                   icon={<Undo2 className="h-4 w-4" />}
                   onClick={handleUndo}
                   tooltip="Undo (⌘Z)"
+                  disabled={false}
+                  active={false}
                 />
               )}
               {/* Discard button - only show when changed from original */}
@@ -539,6 +583,8 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
                   icon={<XCircle className="h-4 w-4" />}
                   onClick={handleDiscard}
                   tooltip="Discard all changes"
+                  disabled={false}
+                  active={false}
                 />
               )}
             </>
@@ -554,15 +600,16 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
               <HighlightedTextarea
                 id={label}
                 value={editValue}
-                onChange={(e) => {
+                onChange={(e: { target: { value: string; selectionStart: number; selectionEnd: number } }) => {
                   if (!isReadOnly) {
                     handleTextChange(e.target.value);
                   }
-                  handleCursorChange(e);
+                  const syntheticEvent = { target: e.target } as React.SyntheticEvent<HTMLTextAreaElement>;
+                  handleCursorChange(syntheticEvent);
                 }}
-                onSelect={handleCursorChange}
-                onClick={handleCursorChange}
-                onKeyUp={handleCursorChange}
+                onSelect={handleCursorChange as unknown as React.ReactEventHandler}
+                onClick={handleCursorChange as unknown as React.MouseEventHandler}
+                onKeyUp={handleCursorChange as unknown as React.KeyboardEventHandler}
                 onKeyDown={handleKeyDown}
                 onBlur={handleBlur}
                 className={`w-full bg-background ${getTextareaStyle()}`}
