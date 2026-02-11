@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { LayoutTemplate, FileText, Search, ArrowRight, ArrowLeft, Plus, Loader2, X } from 'lucide-react';
+import { LayoutTemplate, Search, ArrowRight, ArrowLeft, Plus, Loader2, X } from 'lucide-react';
 import { useTemplates } from '@/hooks/useTemplates';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,70 +14,69 @@ import { toast } from '@/components/ui/sonner';
 import { generatePositionAtEnd } from '@/utils/lexPosition';
 import { CONTEXT_VARIABLE_KEYS } from '@/config/contextVariables';
 
+interface TemplatePickerDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  parentId?: string | null;
+  onPromptCreated?: (rowId: string) => void;
+}
+
 const TemplatePickerDialog = ({ 
   isOpen, 
   onClose, 
   parentId = null,
   onPromptCreated 
-}) => {
+}: TemplatePickerDialogProps) => {
   const { templates, isLoading, extractTemplateVariables, fetchTemplates } = useTemplates();
   
-  // Refetch templates when dialog opens to ensure fresh data
   useEffect(() => {
     if (isOpen) {
       fetchTemplates();
     }
   }, [isOpen, fetchTemplates]);
   const { user } = useAuth();
-  const [step, setStep] = useState('select'); // 'select' | 'variables'
-  const [selectedTemplate, setSelectedTemplate] = useState(null);
-  const [variableValues, setVariableValues] = useState({});
+  const [step, setStep] = useState('select');
+  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+  const [variableValues, setVariableValues] = useState<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [promptNameOverride, setPromptNameOverride] = useState('');
-  const [policyBaseName, setPolicyBaseName] = useState(''); // Dedicated input for policy name
+  const [policyBaseName, setPolicyBaseName] = useState('');
   const isTopLevel = parentId === null;
 
-  const filteredTemplates = templates.filter(t => 
+  const filteredTemplates = (templates as any[]).filter((t: any) => 
     t.template_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     t.category?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Generate the computed prompt name based on policyBaseName
-  const computedPromptName = React.useMemo(() => {
+  const computedPromptName = useMemo(() => {
     const baseName = policyBaseName.trim();
     if (!baseName) return '';
-    
     if (isTopLevel) {
       return `${baseName} (Master) (DRAFT)`;
     }
     return baseName;
   }, [policyBaseName, isTopLevel]);
 
-  // Use override if set, otherwise use computed
   const finalPromptName = promptNameOverride || computedPromptName;
 
-  const handleSelectTemplate = (template) => {
+  const handleSelectTemplate = (template: any) => {
     setSelectedTemplate(template);
     const variables = extractTemplateVariables(template.structure);
     
-    // Check for cross-family q.ref patterns (legacy templates may have these)
     const crossFamilyWarnings = detectCrossFamilyRefs(template.structure);
     if (crossFamilyWarnings.length > 0) {
-      console.warn('Template contains hardcoded q.ref UUIDs that may cause cross-family data issues:', crossFamilyWarnings);
-      toast.warning('This template contains hardcoded references that may not work correctly. Consider re-creating it from a clean prompt.');
+      console.warn('Template contains hardcoded q.ref UUIDs:', crossFamilyWarnings);
+      toast.warning('This template contains hardcoded references that may not work correctly.');
     }
     
-    // Initialize variable values
-    const initialValues = {};
-    variables.forEach(v => { initialValues[v] = ''; });
+    const initialValues: Record<string, string> = {};
+    (variables as string[]).forEach((v: string) => { initialValues[v] = ''; });
     
-    // Reset policyBaseName when selecting new template
     setPolicyBaseName('');
     setPromptNameOverride('');
     setVariableValues(initialValues);
     
-    // Always show variables step for top-level (need policy name) or if there are variables
     if (isTopLevel || variables.length > 0) {
       setStep('variables');
     } else {
@@ -84,29 +84,26 @@ const TemplatePickerDialog = ({
     }
   };
 
-  const handleVariableChange = (name, value) => {
+  const handleVariableChange = (name: string, value: string) => {
     setVariableValues(prev => ({ ...prev, [name]: value }));
   };
 
-  const replaceVariables = (text, values) => {
+  const replaceVariables = (text: any, values: Record<string, string>) => {
     if (!text || typeof text !== 'string') return text;
     let result = text;
     Object.entries(values).forEach(([name, value]) => {
-      // Escape special regex characters in variable name (for names with dots like q.policy.version)
       const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      result = result.replace(new RegExp(`\\{\\{${escapedName}\\}\\}`, 'g'), value);
+      result = result.replace(new RegExp(`\\{\\{${escapedName}\\}\\}`, 'g'), value as string);
     });
-    // Strip any TEMPLATE_REF placeholders (created by sanitization during template creation)
     result = result.replace(/\{\{q\.ref\[TEMPLATE_REF\]\.[a-z_]+\}\}/gi, '');
     return result;
   };
 
-  // Detect and warn about cross-family q.ref patterns in templates
-  const detectCrossFamilyRefs = (structure) => {
+  const detectCrossFamilyRefs = (structure: any) => {
     const qRefPattern = /\{\{q\.ref\[[a-f0-9-]{36}\]\.[a-z_]+\}\}/gi;
-    const warnings = [];
+    const warnings: Array<{ path: string; refs: string[] }> = [];
     
-    const scanObject = (obj, path = '') => {
+    const scanObject = (obj: any, path = '') => {
       if (!obj) return;
       if (typeof obj === 'string') {
         const matches = obj.match(qRefPattern);
@@ -114,7 +111,7 @@ const TemplatePickerDialog = ({
           warnings.push({ path, refs: matches });
         }
       } else if (Array.isArray(obj)) {
-        obj.forEach((item, i) => scanObject(item, `${path}[${i}]`));
+        obj.forEach((item: any, i: number) => scanObject(item, `${path}[${i}]`));
       } else if (typeof obj === 'object') {
         Object.entries(obj).forEach(([key, value]) => scanObject(value, path ? `${path}.${key}` : key));
       }
@@ -124,28 +121,27 @@ const TemplatePickerDialog = ({
     return warnings;
   };
 
-  const handleCreateFromTemplate = async (template, values) => {
+  const handleCreateFromTemplate = async (template: any, values: Record<string, string>) => {
     setIsCreating(true);
     try {
       const structure = template?.structure || selectedTemplate?.structure;
       const vars = values || variableValues;
       const templateRowId = template?.row_id || selectedTemplate?.row_id;
 
-      // Fetch all needed settings at once
       const { data: settingsData } = await supabase
         .from(import.meta.env.VITE_SETTINGS_TBL)
         .select('setting_key, setting_value')
         .in('setting_key', ['default_model', 'def_assistant_instructions']);
 
-      const settingsMap = {};
-      settingsData?.forEach(row => {
+      const settingsMap: Record<string, any> = {};
+      (settingsData as any[])?.forEach((row: any) => {
         settingsMap[row.setting_key] = row.setting_value;
       });
 
       const defaultModelId = settingsMap.default_model;
       const defAssistantInstructions = settingsMap.def_assistant_instructions || '';
 
-      let modelDefaults = {};
+      const modelDefaults: Record<string, any> = {};
       if (defaultModelId) {
         const { data: defaultsData } = await supabase
           .from(import.meta.env.VITE_MODEL_DEFAULTS_TBL)
@@ -158,8 +154,8 @@ const TemplatePickerDialog = ({
             'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user'];
           
           defaultSettingFields.forEach(field => {
-            if (defaultsData[`${field}_on`]) {
-              modelDefaults[field] = defaultsData[field];
+            if ((defaultsData as any)[`${field}_on`]) {
+              modelDefaults[field] = (defaultsData as any)[field];
               modelDefaults[`${field}_on`] = true;
             }
           });
@@ -169,8 +165,7 @@ const TemplatePickerDialog = ({
         }
       }
 
-      // Helper to get last position key at a level
-      const getLastPositionKey = async (parentRowId) => {
+      const getLastPositionKey = async (parentRowId: string | null) => {
         let query = supabase
           .from(import.meta.env.VITE_PROMPTS_TBL)
           .select('position_lex')
@@ -186,19 +181,17 @@ const TemplatePickerDialog = ({
         }
         
         const { data } = await query;
-        return data?.[0]?.position_lex || null;
+        return (data as any)?.[0]?.position_lex || null;
       };
       
-      // Track position keys for sequential generation within each parent
-      const positionKeyCache = new Map();
+      const positionKeyCache = new Map<string | null, string | null>();
 
-      // Helper to create conversation for top-level prompts (Responses API - no instantiation needed)
-      const createConversation = async (promptRowId, promptName, instructions = '') => {
+      const createConversation = async (promptRowId: string, promptName: string, instructions = '') => {
         try {
-          const insertData = {
+          const insertData: Record<string, any> = {
             prompt_row_id: promptRowId,
             name: promptName,
-            status: 'active', // Responses API is always ready
+            status: 'active',
             api_version: 'responses',
             use_global_tool_defaults: true,
           };
@@ -218,17 +211,15 @@ const TemplatePickerDialog = ({
             return null;
           }
 
-          console.log('Created conversation record:', conversation.row_id);
-          return conversation.row_id;
+          console.log('Created conversation record:', (conversation as any)?.row_id);
+          return (conversation as any)?.row_id;
         } catch (error) {
           console.error('Error creating conversation:', error);
           return null;
         }
       };
 
-      // Recursive function to create prompts from structure
-      const createPromptFromStructure = async (promptStructure, parentRowId, childIndex = 0, overridePromptName = null) => {
-        // Get or generate position key for this parent level
+      const createPromptFromStructure = async (promptStructure: any, parentRowId: string | null, _childIndex = 0, overridePromptName: string | null = null): Promise<any> => {
         let currentLastKey = positionKeyCache.get(parentRowId);
         if (currentLastKey === undefined) {
           currentLastKey = await getLastPositionKey(parentRowId);
@@ -238,20 +229,15 @@ const TemplatePickerDialog = ({
         
         const isTopLevelPrompt = parentRowId === null;
 
-        // Build prompt name
-        let promptName;
+        let promptName: string;
         if (isTopLevelPrompt && overridePromptName) {
           promptName = overridePromptName;
         } else {
           promptName = replaceVariables(promptStructure.prompt_name, vars);
         }
 
-// Build system_variables object - ONLY store user-editable variables, NOT context variables
-        // Context variables (q.prompt.name, q.toplevel.prompt.name, etc.) should be resolved at runtime
-        // CONTEXT_VARIABLE_KEYS imported from @/config/contextVariables
-        const systemVariables = {};
+        const systemVariables: Record<string, string> = {};
         Object.entries(vars).forEach(([key, value]) => {
-          // Only store user-editable q.* variables, skip context variables
           if (key.startsWith('q.') && 
               value !== undefined && value !== null && value !== '' &&
               !CONTEXT_VARIABLE_KEYS.includes(key)) {
@@ -259,8 +245,7 @@ const TemplatePickerDialog = ({
           }
         });
 
-        // Start with model defaults, then overlay template-specific settings
-        const insertData = {
+        const insertData: Record<string, any> = {
           parent_row_id: parentRowId,
           prompt_name: promptName,
           input_admin_prompt: replaceVariables(promptStructure.input_admin_prompt, vars),
@@ -271,10 +256,9 @@ const TemplatePickerDialog = ({
           position_lex: newPositionLex,
           is_deleted: false,
           system_variables: Object.keys(systemVariables).length > 0 ? systemVariables : null,
-          ...modelDefaults, // Apply system model defaults first
+          ...modelDefaults,
         };
 
-        // Override with template-specific model/settings fields if present
         const modelFields = [
           'model', 'model_on',
           'temperature', 'temperature_on',
@@ -296,11 +280,9 @@ const TemplatePickerDialog = ({
           }
         });
 
-        // Copy assistant/thread settings
         if (promptStructure.is_assistant !== undefined) {
           insertData.is_assistant = promptStructure.is_assistant;
         } else if (isTopLevelPrompt) {
-          // Default top-level prompts to assistant mode
           insertData.is_assistant = true;
         }
 
@@ -320,13 +302,11 @@ const TemplatePickerDialog = ({
           insertData.confluence_enabled = promptStructure.confluence_enabled;
         }
         
-        // CRITICAL: Copy action node fields - DB trigger will enforce consistency
         if (promptStructure.node_type) {
           insertData.node_type = promptStructure.node_type;
         }
         if (promptStructure.post_action) {
           insertData.post_action = promptStructure.post_action;
-          // Force node_type to action if post_action is set (DB trigger does this too, but be explicit)
           insertData.node_type = 'action';
         }
         if (promptStructure.post_action_config) {
@@ -351,14 +331,11 @@ const TemplatePickerDialog = ({
           throw new Error('Insert succeeded but no data returned');
         }
 
-        // Create conversation for top-level prompts and copy template attachments
         if (isTopLevelPrompt && (insertData.is_assistant || insertData.is_assistant === undefined)) {
-          // Use template instructions, fallback to default assistant instructions
           const templateInstructions = replaceVariables(promptStructure.assistant_instructions, vars);
           const conversationInstructions = templateInstructions || defAssistantInstructions || '';
-          const conversationRowId = await createConversation(data.row_id, insertData.prompt_name, conversationInstructions);
+          const conversationRowId = await createConversation((data as any).row_id, insertData.prompt_name, conversationInstructions);
           
-          // Copy template attachments (Confluence pages) to the new conversation
           const templateAttachments = structure.attachments?.confluencePages || [];
           if (conversationRowId && templateAttachments.length > 0) {
             for (const page of templateAttachments) {
@@ -377,19 +354,16 @@ const TemplatePickerDialog = ({
           }
         }
 
-        // Create children recursively with proper ordering
         if (promptStructure.children?.length > 0) {
-          // Reset cache for this parent's children to start fresh
-          positionKeyCache.delete(data.row_id);
+          positionKeyCache.delete((data as any).row_id);
           for (let i = 0; i < promptStructure.children.length; i++) {
-            await createPromptFromStructure(promptStructure.children[i], data.row_id, i, null);
+            await createPromptFromStructure(promptStructure.children[i], (data as any).row_id, i, null);
           }
         }
 
         return data;
       };
 
-      // Use finalPromptName for top-level prompts
       const createdPrompt = await createPromptFromStructure(structure, parentId, 0, finalPromptName);
       
       toast.success('Prompt created from template');
@@ -453,7 +427,7 @@ const TemplatePickerDialog = ({
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {filteredTemplates.map(template => {
+                  {filteredTemplates.map((template: any) => {
                     const variables = extractTemplateVariables(template.structure);
                     
                     return (
@@ -507,7 +481,6 @@ const TemplatePickerDialog = ({
           <>
             <ScrollArea className="max-h-[300px] pr-4">
               <div className="space-y-4">
-                {/* Prompt Name Section - Only for top-level prompts */}
                 {isTopLevel && (
                   <div className="space-y-3 pb-3 border-b border-border">
                     <div className="space-y-2">
@@ -540,7 +513,7 @@ const TemplatePickerDialog = ({
                   </div>
                 )}
                 
-                {templateVariables.map(varName => (
+                {(templateVariables as string[]).map((varName: string) => (
                   <div key={varName} className="space-y-2">
                     <Label htmlFor={varName} className="flex items-center gap-2">
                       <Badge variant="outline" className="font-mono text-xs">{`{{${varName}}}`}</Badge>

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
@@ -12,35 +12,51 @@ import { useSettings } from '../hooks/useSettings';
 import { useModels } from '../hooks/useModels';
 import { toast } from '@/components/ui/sonner';
 import { ALL_SETTINGS, ALL_TOOLS } from '@/config/modelCapabilities';
+import type { LucideIcon } from 'lucide-react';
 
-const TOOL_ICONS = {
+const TOOL_ICONS: Record<string, LucideIcon> = {
   web_search: Globe,
   confluence: FileText,
   code_interpreter: Code,
   file_search: Search,
 };
 
+interface ModelData {
+  row_id: string;
+  model_id: string;
+  model_name?: string;
+  provider?: string;
+  is_active?: boolean;
+}
+
+interface SettingsPanelProps {
+  localData: Record<string, unknown>;
+  selectedItemData: { row_id: string };
+  models: ModelData[];
+  handleChange: (key: string, value: unknown) => void;
+  handleSave?: () => void;
+  handleReset?: () => void;
+  hasUnsavedChanges?: boolean;
+}
+
 const SettingsPanel = ({ 
   localData, 
   selectedItemData, 
   models, 
   handleChange, 
-  handleSave, 
-  handleReset, 
-  hasUnsavedChanges 
-}) => {
+}: SettingsPanelProps) => {
   const supabase = useSupabase();
-  const { settings, isLoading: settingsLoading } = useSettings(supabase);
-  const { isSettingSupported, isToolSupported, getProviderForModel } = useModels();
+  const { settings } = useSettings(supabase);
+  const { isSettingSupported, isToolSupported } = useModels();
 
   // Get default model from global settings
   const defaultModel = useMemo(() => {
-    return settings?.default_model?.value || models[0]?.model_id || '';
+    return (settings as Record<string, { value?: string }> | null)?.default_model?.value || (models[0]?.model_id) || '';
   }, [settings, models]);
 
   // Get the currently selected model (prompt's model or default)
-  const currentModel = localData.model || defaultModel;
-  const currentModelData = models.find(m => m.model_id === currentModel || m.model_name === currentModel);
+  const currentModel = (localData.model as string) || defaultModel;
+  const currentModelData = models.find((m: ModelData) => m.model_id === currentModel || m.model_name === currentModel);
   
   // Get provider for current model
   const currentProvider = currentModelData?.provider || 'openai';
@@ -48,8 +64,8 @@ const SettingsPanel = ({
 
   // Group models by provider
   const modelsByProvider = useMemo(() => {
-    const grouped = {};
-    models.forEach(model => {
+    const grouped: Record<string, ModelData[]> = {};
+    models.forEach((model: ModelData) => {
       const provider = model.provider || 'openai';
       if (!grouped[provider]) grouped[provider] = [];
       grouped[provider].push(model);
@@ -58,9 +74,6 @@ const SettingsPanel = ({
   }, [models]);
 
   // Settings to display - filter based on provider
-  // CRITICAL: max_tokens and max_completion_tokens are separate settings - never harmonize
-  // GPT-4 uses max_tokens, GPT-5 uses max_completion_tokens
-  // Manus only supports task_mode
   const visibleSettings = isManusModel 
     ? ['task_mode']
     : ['temperature', 'max_tokens', 'max_completion_tokens', 'frequency_penalty', 'presence_penalty', 'seed', 'tool_choice', 'reasoning_effort'];
@@ -68,7 +81,7 @@ const SettingsPanel = ({
   // Tools to display - Manus doesn't use these tools
   const toolKeys = isManusModel ? [] : ['web_search', 'confluence', 'code_interpreter', 'file_search'];
 
-  const handleToggleChange = async (fieldName, checked) => {
+  const handleToggleChange = async (fieldName: string, checked: boolean) => {
     handleChange(`${fieldName}_on`, checked);
     
     try {
@@ -81,7 +94,7 @@ const SettingsPanel = ({
 
       // Set default value if enabling
       if (checked && !localData[fieldName]) {
-        const settingInfo = ALL_SETTINGS[fieldName];
+        const settingInfo = ALL_SETTINGS[fieldName as keyof typeof ALL_SETTINGS] as { defaultValue?: string } | undefined;
         if (settingInfo?.defaultValue) {
           handleChange(fieldName, settingInfo.defaultValue);
           await supabase
@@ -96,7 +109,7 @@ const SettingsPanel = ({
     }
   };
 
-  const handleToolToggle = async (toolName, checked) => {
+  const handleToolToggle = async (toolName: string, checked: boolean) => {
     const fieldName = `${toolName}_on`;
     handleChange(fieldName, checked);
     
@@ -113,7 +126,7 @@ const SettingsPanel = ({
     }
   };
 
-  const handleModelChange = async (value) => {
+  const handleModelChange = async (value: string) => {
     const useDefault = value === '__default__';
     handleChange('model', useDefault ? '' : value);
     handleChange('model_on', !useDefault);
@@ -135,13 +148,12 @@ const SettingsPanel = ({
   };
 
   // For Input fields - only update local state, save on blur
-  const handleInputChange = (fieldName, value) => {
+  const handleInputChange = (fieldName: string, value: string) => {
     handleChange(fieldName, value);
-    // No database save - that happens on blur via handleValueBlur
   };
 
   // For Select fields - save immediately (no blur event)
-  const handleSelectChange = async (fieldName, value) => {
+  const handleSelectChange = async (fieldName: string, value: string) => {
     handleChange(fieldName, value);
     try {
       const { error } = await supabase
@@ -156,7 +168,7 @@ const SettingsPanel = ({
     }
   };
 
-  const handleValueBlur = async (fieldName) => {
+  const handleValueBlur = async (fieldName: string) => {
     try {
       const { error } = await supabase
         .from(import.meta.env.VITE_PROMPTS_TBL)
@@ -170,7 +182,7 @@ const SettingsPanel = ({
     }
   };
 
-  const defaultModelData = models.find(m => m.model_id === defaultModel);
+  const defaultModelData = models.find((m: ModelData) => m.model_id === defaultModel);
   const defaultModelName = defaultModelData?.model_name || defaultModel;
 
   return (
@@ -179,7 +191,7 @@ const SettingsPanel = ({
         {/* Model Selection */}
         <div className="flex items-center gap-2">
           <Select
-            value={localData.model_on && localData.model ? localData.model : '__default__'}
+            value={localData.model_on && localData.model ? (localData.model as string) : '__default__'}
             onValueChange={handleModelChange}
           >
             <SelectTrigger className="h-7 text-xs flex-1">
@@ -194,7 +206,7 @@ const SettingsPanel = ({
               {modelsByProvider.openai?.length > 0 && (
                 <SelectGroup>
                   <SelectLabel className="text-[10px] text-on-surface-variant uppercase px-2 py-1">OpenAI</SelectLabel>
-                  {modelsByProvider.openai.filter(m => m.is_active).map((model) => (
+                  {modelsByProvider.openai.filter((m: ModelData) => m.is_active).map((model: ModelData) => (
                     <SelectItem key={model.row_id} value={model.model_id}>
                       {model.model_name}
                     </SelectItem>
@@ -206,7 +218,7 @@ const SettingsPanel = ({
               {modelsByProvider.manus?.length > 0 && (
                 <SelectGroup>
                   <SelectLabel className="text-[10px] text-on-surface-variant uppercase px-2 py-1">Manus</SelectLabel>
-                  {modelsByProvider.manus.filter(m => m.is_active).map((model) => (
+                  {modelsByProvider.manus.filter((m: ModelData) => m.is_active).map((model: ModelData) => (
                     <SelectItem key={model.row_id} value={model.model_id}>
                       <div className="flex items-center gap-2">
                         <Bot className="h-3 w-3 text-primary" />
@@ -224,7 +236,7 @@ const SettingsPanel = ({
                 .map(([provider, providerModels]) => (
                   <SelectGroup key={provider}>
                     <SelectLabel className="text-[10px] text-on-surface-variant uppercase px-2 py-1">{provider}</SelectLabel>
-                    {providerModels.filter(m => m.is_active).map((model) => (
+                    {(providerModels as ModelData[]).filter((m: ModelData) => m.is_active).map((model: ModelData) => (
                       <SelectItem key={model.row_id} value={model.model_id}>
                         {model.model_name}
                       </SelectItem>
@@ -248,7 +260,7 @@ const SettingsPanel = ({
         {toolKeys.length > 0 && (
           <div className="flex items-center gap-1 p-1.5 bg-muted/30 rounded-md border border-border/50">
             {toolKeys.map(toolKey => {
-              const tool = ALL_TOOLS[toolKey];
+              const tool = ALL_TOOLS[toolKey as keyof typeof ALL_TOOLS];
               const IconComponent = TOOL_ICONS[toolKey];
               const isEnabled = localData[`${toolKey}_on`] || false;
               const supported = isToolSupported(toolKey, currentModel);
@@ -289,10 +301,11 @@ const SettingsPanel = ({
         {/* Settings Grid - 2 columns */}
         <div className="grid grid-cols-2 gap-2">
         {visibleSettings.map(settingKey => {
-            const setting = ALL_SETTINGS[settingKey];
+            const setting = ALL_SETTINGS[settingKey as keyof typeof ALL_SETTINGS] as { label: string; shortLabel: string; details: string; docUrl?: string; type: string; defaultValue?: string; min?: number; max?: number; step?: number; options?: Array<{ value: string; label: string }> } | undefined;
+            if (!setting) return null;
             const supported = isSettingSupported(settingKey, currentModel);
             const isEnabled = localData[`${settingKey}_on`] || false;
-            const value = localData[settingKey] || '';
+            const value = (localData[settingKey] as string) || '';
             
             return (
               <div 
@@ -305,7 +318,7 @@ const SettingsPanel = ({
                 )}
               >
                 <Switch
-                  checked={isEnabled}
+                  checked={isEnabled as boolean}
                   onCheckedChange={(checked) => supported && handleToggleChange(settingKey, checked)}
                   disabled={!supported}
                   className="h-4 w-7 data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted"

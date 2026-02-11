@@ -1,10 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-const SettingField = ({ id, label, type, value, onChange, disabled }) => {
-  const [jsonError, setJsonError] = useState(null);
+interface SettingFieldProps {
+  id: string;
+  label: string;
+  type: string;
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}
+
+const SettingField = ({ id, label, type, value, onChange, disabled }: SettingFieldProps) => {
+  const [jsonError, setJsonError] = useState<string | null>(null);
   const [parsedValue, setParsedValue] = useState('');
 
   useEffect(() => {
@@ -23,14 +32,14 @@ const SettingField = ({ id, label, type, value, onChange, disabled }) => {
     }
   }, [id, value]);
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const newValue = e.target.value;
     if (id === 'response_format') {
       try {
         JSON.parse(newValue);
         setJsonError(null);
         onChange(JSON.stringify(JSON.parse(newValue)));
-      } catch (error) {
+      } catch {
         setJsonError('Invalid JSON format');
         onChange(newValue);
       }
