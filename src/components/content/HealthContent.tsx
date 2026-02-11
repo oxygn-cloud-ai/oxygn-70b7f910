@@ -1,16 +1,17 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useCallback } from "react";
 import { 
   Activity, Server, Zap, Shield, Key, Globe,
-  CheckCircle, AlertCircle, XCircle, Clock, 
-  Database, Cpu, HardDrive, Wifi, RefreshCw, Loader2, CloudCog, Wrench
+  Database, RefreshCw, Loader2, CloudCog, Wrench
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { useAllResourceHealth } from "@/hooks/useResourceHealth";
 import { toast } from "@/components/ui/sonner";
+import type { LucideIcon } from 'lucide-react';
 
 // Status types and colors
-const STATUS = {
+const STATUS: Record<string, { color: string; text: string; bg: string; label: string }> = {
   operational: { color: "bg-green-500", text: "text-green-600", bg: "bg-green-500/10", label: "Operational" },
   success: { color: "bg-green-500", text: "text-green-600", bg: "bg-green-500/10", label: "Success" },
   authenticated: { color: "bg-green-500", text: "text-green-600", bg: "bg-green-500/10", label: "Authenticated" },
@@ -35,7 +36,7 @@ const API_ENDPOINTS = [
 ];
 
 
-const StatusBadge = ({ status }) => {
+const StatusBadge = ({ status }: { status: string }) => {
   const s = STATUS[status] || STATUS.unknown;
   return (
     <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${s.bg} ${s.text}`}>
@@ -45,7 +46,14 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-const HealthCard = ({ icon: Icon, title, status, children }) => (
+interface HealthCardProps {
+  icon: LucideIcon;
+  title: string;
+  status: string;
+  children: React.ReactNode;
+}
+
+const HealthCard = ({ icon: Icon, title, status, children }: HealthCardProps) => (
   <div className="p-3 bg-surface-container-low rounded-m3-lg">
     <div className="flex items-center justify-between mb-2">
       <div className="flex items-center gap-2">
@@ -58,8 +66,13 @@ const HealthCard = ({ icon: Icon, title, status, children }) => (
   </div>
 );
 
+interface SectionProps {
+  healthData: any;
+  isLoading: boolean;
+}
+
 // Overview Section with real data
-const OverviewSection = ({ healthData, isLoading }) => {
+const OverviewSection = ({ healthData, isLoading }: SectionProps) => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -104,7 +117,7 @@ const OverviewSection = ({ healthData, isLoading }) => {
 };
 
 // Database Section with real table checks
-const DatabaseSection = ({ healthData, isLoading }) => {
+const DatabaseSection = ({ healthData, isLoading }: SectionProps) => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -148,7 +161,7 @@ const DatabaseSection = ({ healthData, isLoading }) => {
 };
 
 // AI Services Section 
-const AIServicesSection = ({ healthData, isLoading }) => {
+const AIServicesSection = ({ healthData, isLoading }: SectionProps) => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -179,7 +192,7 @@ const AIServicesSection = ({ healthData, isLoading }) => {
             <span>Available Models</span>
             <span className="text-center">Status</span>
           </div>
-          {models.slice(0, 8).map((model, i) => (
+          {models.slice(0, 8).map((model: string, i: number) => (
             <div key={model} className={`grid grid-cols-[1fr,100px] gap-3 px-3 py-2 items-center ${i > 0 ? "border-t border-outline-variant" : ""}`}>
               <span className="text-body-sm text-on-surface font-medium">{model}</span>
               <div className="flex justify-center">
@@ -194,7 +207,7 @@ const AIServicesSection = ({ healthData, isLoading }) => {
 };
 
 // Auth Status Section
-const AuthStatusSection = ({ healthData, isLoading }) => {
+const AuthStatusSection = ({ healthData, isLoading }: SectionProps) => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -241,7 +254,7 @@ const AuthStatusSection = ({ healthData, isLoading }) => {
 };
 
 // API Health Section
-const APIHealthSection = ({ healthData, isLoading }) => {
+const APIHealthSection = ({ healthData, isLoading }: SectionProps) => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -279,14 +292,14 @@ const APIHealthSection = ({ healthData, isLoading }) => {
 
 // OpenAI Resources Section
 const ResourcesSection = () => {
-  const { assistants, isChecking, error, checkAll, repairAssistant } = useAllResourceHealth();
-  const [repairingId, setRepairingId] = useState(null);
+  const { assistants, isChecking, error, checkAll, repairAssistant } = useAllResourceHealth() as any;
+  const [repairingId, setRepairingId] = useState<string | null>(null);
 
   useEffect(() => {
     checkAll();
   }, []);
 
-  const handleRepair = async (assistantRowId) => {
+  const handleRepair = async (assistantRowId: string) => {
     setRepairingId(assistantRowId);
     try {
       const result = await repairAssistant(assistantRowId);
@@ -295,14 +308,14 @@ const ResourcesSection = () => {
       } else {
         toast.error('Repair completed with errors', { description: result?.errors?.join(', ') });
       }
-    } catch (err) {
+    } catch (err: any) {
       toast.error('Repair failed', { description: err.message });
     } finally {
       setRepairingId(null);
     }
   };
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (status: string) => {
     switch (status) {
       case 'healthy': return 'success';
       case 'degraded': return 'degraded';
@@ -364,7 +377,7 @@ const ResourcesSection = () => {
             <span className="text-center">Files</span>
             <span className="text-center">Action</span>
           </div>
-          {assistants.map((assistant, i) => (
+          {assistants.map((assistant: any, i: number) => (
             <div key={assistant.assistant_row_id} className={`grid grid-cols-[1fr,100px,80px,80px,60px] gap-3 px-3 py-2 items-center ${i > 0 ? "border-t border-outline-variant" : ""}`}>
               <div className="min-w-0">
                 <span className="text-body-sm text-on-surface font-medium truncate block">{assistant.prompt_name}</span>
@@ -408,9 +421,13 @@ const ResourcesSection = () => {
 };
 
 // Main HealthContent component
-const HealthContent = ({ activeSubItem }) => {
+interface HealthContentProps {
+  activeSubItem?: string;
+}
+
+const HealthContent = ({ activeSubItem }: HealthContentProps) => {
   const [isLoading, setIsLoading] = useState(true);
-  const [healthData, setHealthData] = useState({
+  const [healthData, setHealthData] = useState<any>({
     database: { status: 'pending', message: '' },
     tables: {},
     auth: { status: 'pending', message: '', user: null },
@@ -434,10 +451,10 @@ const HealthContent = ({ activeSubItem }) => {
         : { status: 'success', message: `Connected (${dbLatency}ms)` };
 
       // Check tables
-      const tableResults = {};
+      const tableResults: Record<string, any> = {};
       for (const table of DATABASE_TABLES) {
         try {
-          const { count } = await supabase.from(table).select('*', { count: 'exact', head: true });
+          const { count } = await supabase.from(table as any).select('*', { count: 'exact', head: true });
           tableResults[table] = { status: 'success', count: count || 0 };
         } catch {
           tableResults[table] = { status: 'error', count: 0 };
@@ -451,7 +468,7 @@ const HealthContent = ({ activeSubItem }) => {
         : { status: 'unauthenticated', message: 'No active session', user: null };
 
       // Check OpenAI via edge function
-      let openaiResult = { connection: { status: 'pending', message: 'Not checked', latency: null }, models: { status: 'pending', available: [] } };
+      const openaiResult: any = { connection: { status: 'pending', message: 'Not checked', latency: null }, models: { status: 'pending', available: [] } };
       try {
         const { data, error } = await supabase.functions.invoke('openai-proxy', { body: { action: 'health' } });
         if (error) {
@@ -459,7 +476,7 @@ const HealthContent = ({ activeSubItem }) => {
         } else {
           openaiResult.connection = { status: data.status || 'success', message: data.message || 'Connected', latency: data.latency };
         }
-      } catch (err) {
+      } catch (err: any) {
         openaiResult.connection = { status: 'error', message: err.message, latency: null };
       }
 
@@ -490,7 +507,7 @@ const HealthContent = ({ activeSubItem }) => {
     checkHealth();
   }, [checkHealth]);
 
-  const HEALTH_SECTIONS = {
+  const HEALTH_SECTIONS: Record<string, { component: React.FC<SectionProps> | React.FC; icon: LucideIcon; title: string }> = {
     overview: { component: OverviewSection, icon: Activity, title: "Overview" },
     database: { component: DatabaseSection, icon: Server, title: "Database" },
     "ai-services": { component: AIServicesSection, icon: Zap, title: "AI Services" },
@@ -499,8 +516,8 @@ const HealthContent = ({ activeSubItem }) => {
     "api-health": { component: APIHealthSection, icon: Key, title: "API Health" },
   };
 
-  const section = HEALTH_SECTIONS[activeSubItem] || HEALTH_SECTIONS.overview;
-  const SectionComponent = section.component;
+  const section = HEALTH_SECTIONS[activeSubItem || 'overview'] || HEALTH_SECTIONS.overview;
+  const SectionComponent = section.component as any;
   const Icon = section.icon;
 
   return (

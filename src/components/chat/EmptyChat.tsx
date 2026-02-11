@@ -1,4 +1,3 @@
-import React from 'react';
 import { Bot, MessageSquarePlus, Lightbulb } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -10,7 +9,12 @@ const suggestedPrompts = [
   "Analyze this data and give insights",
 ];
 
-const EmptyChat = ({ conversationName, onSendSuggestion }) => {
+interface EmptyChatProps {
+  conversationName?: string;
+  onSendSuggestion?: (prompt: string) => void;
+}
+
+const EmptyChat = ({ conversationName, onSendSuggestion }: EmptyChatProps) => {
   return (
     <div className="h-full flex items-center justify-center p-4">
       <div className="text-center max-w-sm">

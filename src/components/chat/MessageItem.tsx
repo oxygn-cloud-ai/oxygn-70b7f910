@@ -8,7 +8,7 @@ interface MessageItemProps {
   isStreaming?: boolean;
 }
 
-export const MessageItem = memo<MessageItemProps>(({ msg, isStreaming }) => (
+export const MessageItem = memo<MessageItemProps>(({ msg, isStreaming: _isStreaming }) => (
   <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
     <div 
       className={`max-w-[85%] px-2.5 py-2 rounded-m3-lg text-body-sm ${

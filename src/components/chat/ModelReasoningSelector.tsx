@@ -10,6 +10,21 @@ const REASONING_OPTIONS = [
   { value: 'high', label: 'High', desc: 'Deeper' },
 ];
 
+interface ActiveModel {
+  model_id: string;
+  model_name?: string;
+}
+
+interface ModelReasoningSelectorProps {
+  selectedModel: string | null;
+  onModelChange: (modelId: string | null) => void;
+  activeModels?: ActiveModel[];
+  defaultModelName?: string;
+  reasoningEffort?: string;
+  onReasoningChange?: (value: string) => void;
+  supportsReasoning?: boolean;
+}
+
 const ModelReasoningSelector = ({
   selectedModel,
   onModelChange,
@@ -18,19 +33,19 @@ const ModelReasoningSelector = ({
   reasoningEffort = 'auto',
   onReasoningChange,
   supportsReasoning = false,
-}) => {
+}: ModelReasoningSelectorProps) => {
   const [modelOpen, setModelOpen] = useState(false);
   const [reasoningOpen, setReasoningOpen] = useState(false);
-  const modelRef = useRef(null);
-  const reasoningRef = useRef(null);
+  const modelRef = useRef<HTMLDivElement>(null);
+  const reasoningRef = useRef<HTMLDivElement>(null);
 
   // Click-outside handlers
   useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (modelRef.current && !modelRef.current.contains(e.target)) {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (modelRef.current && !modelRef.current.contains(e.target as Node)) {
         setModelOpen(false);
       }
-      if (reasoningRef.current && !reasoningRef.current.contains(e.target)) {
+      if (reasoningRef.current && !reasoningRef.current.contains(e.target as Node)) {
         setReasoningOpen(false);
       }
     };
@@ -112,7 +127,7 @@ const ModelReasoningSelector = ({
               {REASONING_OPTIONS.map(opt => (
                 <button
                   key={opt.value}
-                  onClick={() => { onReasoningChange(opt.value); setReasoningOpen(false); }}
+                  onClick={() => { onReasoningChange?.(opt.value); setReasoningOpen(false); }}
                   className="w-full flex items-center justify-between px-3 py-1.5 text-body-sm hover:bg-surface-container"
                 >
                   <div className="flex items-center gap-2">
