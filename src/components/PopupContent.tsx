@@ -1,10 +1,30 @@
-import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Copy, Replace, ReplaceAll } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 
-const PopupContent = ({ isExpanded, isLoading, selectedItem, cascadeField, onCascade }) => {
-  const copyToClipboard = (text) => {
+interface SelectedItem {
+  input_admin_prompt?: string;
+  input_user_prompt?: string;
+  admin_prompt_result?: string;
+  user_prompt_result?: string;
+}
+
+interface PopupContentProps {
+  isExpanded: boolean;
+  isLoading: boolean;
+  selectedItem: SelectedItem | null;
+  cascadeField: string | null;
+  onCascade: (content: string, action: string) => void;
+}
+
+interface ActionButtonProps {
+  icon: React.ReactNode;
+  onClick: () => void;
+  tooltip: string;
+}
+
+const PopupContent: React.FC<PopupContentProps> = ({ isExpanded, isLoading, selectedItem, cascadeField, onCascade }) => {
+  const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
       toast.success('Copied to clipboard');
     }).catch((err) => {
@@ -13,14 +33,14 @@ const PopupContent = ({ isExpanded, isLoading, selectedItem, cascadeField, onCas
     });
   };
 
-  const handleAction = (content, action) => {
+  const handleAction = (content: string, action: string) => {
     if (action === 'append') {
       content = content.trim();
     }
     onCascade(content, action);
   };
 
-  const renderField = (label, content) => (
+  const renderField = (label: string, content: string) => (
     <div className="mb-4">
       <div className="flex justify-between items-center mb-2">
         <h4 className="text-sm font-semibold">{label}</h4>
@@ -76,7 +96,7 @@ const PopupContent = ({ isExpanded, isLoading, selectedItem, cascadeField, onCas
   );
 };
 
-const ActionButton = ({ icon, onClick, tooltip }) => (
+const ActionButton: React.FC<ActionButtonProps> = ({ icon, onClick, tooltip }) => (
   <Button
     variant="ghost"
     size="sm"

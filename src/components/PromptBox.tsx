@@ -1,7 +1,12 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 
-const PromptBox = ({ title, initialContent }) => {
+interface PromptBoxProps {
+  title: string;
+  initialContent: string;
+}
+
+const PromptBox: React.FC<PromptBoxProps> = ({ title, initialContent }) => {
   const [content, setContent] = useState(initialContent);
 
   return (

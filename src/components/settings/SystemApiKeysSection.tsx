@@ -150,9 +150,6 @@ const SystemApiKeysSection: React.FC = () => {
           <SettingCard key={svc.service} label={svc.label}>
             <div className="flex items-center gap-3 mb-3">
               <Icon className="h-5 w-5 text-on-surface-variant" />
-              <div className="flex-1">
-                <h4 className="text-body-sm text-on-surface font-medium">{svc.label}</h4>
-              </div>
             </div>
 
             <div className="space-y-3">
@@ -170,7 +167,7 @@ const SystemApiKeysSection: React.FC = () => {
                     >
                       {isConfigured ? (
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-success/10 text-success">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-500">
                             Active
                           </span>
                           <Tooltip>
