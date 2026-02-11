@@ -1,7 +1,13 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
-const SettingRow = React.forwardRef(({ 
+interface SettingRowProps extends React.HTMLAttributes<HTMLDivElement> {
+  label?: string;
+  description?: string;
+  children?: React.ReactNode;
+}
+
+const SettingRow = React.forwardRef<HTMLDivElement, SettingRowProps>(({ 
   className, 
   label, 
   description, 
@@ -30,3 +36,4 @@ const SettingRow = React.forwardRef(({
 SettingRow.displayName = "SettingRow"
 
 export { SettingRow }
+export type { SettingRowProps }
