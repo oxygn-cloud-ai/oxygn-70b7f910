@@ -1,92 +1,145 @@
 
-# Fix: False Success Toast for GPT-5 Background/Webhook Responses
+
+# Fix: Reading Pane GPT-5 Response Delivery
 
 ## Problem
 
-When a GPT-5 request is initiated from the Reading Pane (single prompt run via `MainLayout.handleRunPrompt`), the `conversation-run` edge function returns early with an SSE event `{ type: 'long_running_started', response_id: '...' }`. The `useConversationRun` hook correctly parses this and returns an interrupt result:
+When a GPT-5 request is triggered from the Reading Pane, `MainLayout.handleRunPrompt` now correctly shows an info toast ("Background processing started") and exits early. However, when the `openai-webhook` edge function later delivers the result and writes `output_response` to `q_prompts`, the UI never refreshes -- the user sees stale/empty output until they manually re-select the prompt.
+
+The Conversation Panel path works because `usePromptFamilyChat` uses `usePendingResponseSubscription` to listen for Realtime updates on `q_pending_responses`. The Reading Pane path has no equivalent listener.
+
+## Solution
+
+Add a `usePendingResponseSubscription` watcher in `MainLayout` that:
+1. Activates when a `long_running` interrupt sets a pending `responseId`
+2. Listens for the webhook to mark the response as `completed` or `failed`
+3. On completion: refreshes the prompt data so the output field updates, shows a success toast, and clears the subscription
+4. On failure: shows an error toast and clears the subscription
+
+## Changes
+
+### 1. `src/pages/MainLayout.tsx` -- Add state + hook
+
+Near the existing state declarations (around line 130), add:
 
 ```typescript
-{
-  interrupted: true,
-  interruptType: 'long_running',
-  interruptData: { responseId: '...', message: '...' }
+const [pendingWebhookResponseId, setPendingWebhookResponseId] = useState<string | null>(null);
+const [pendingWebhookPromptId, setPendingWebhookPromptId] = useState<string | null>(null);
+```
+
+Import and call `usePendingResponseSubscription`:
+
+```typescript
+import { usePendingResponseSubscription } from '@/hooks/usePendingResponseSubscription';
+
+// Near the other hooks:
+const {
+  isComplete: webhookComplete,
+  isFailed: webhookFailed,
+  outputText: webhookOutputText,
+  errorMessage: webhookErrorMessage,
+  clearPendingResponse: clearWebhookPending,
+} = usePendingResponseSubscription(pendingWebhookResponseId);
+```
+
+### 2. `src/pages/MainLayout.tsx` -- Update the long_running handler (line 440)
+
+In the existing `long_running` interrupt block, set the pending state before returning:
+
+```typescript
+if (result?.interrupted && result.interruptType === 'long_running') {
+  const responseId = result.interruptData?.responseId;
+  
+  // ... existing tracing code stays the same ...
+  
+  // Activate Realtime subscription to receive webhook result
+  setPendingWebhookResponseId(responseId || null);
+  setPendingWebhookPromptId(promptId);
+  
+  toast.info('Background processing started', {
+    description: 'GPT-5 is processing your request. The response will appear automatically when ready.',
+    duration: 5000,
+  });
+  
+  endSingleRun();
+  setRunStartingFor(null);
+  return;
 }
 ```
 
-However, `MainLayout.tsx` only checks for `interruptType === 'question'` (line 411). The `long_running` interrupt falls through to `break` at line 439 ("Normal completion"), then hits the success toast at line 502 which displays `unknown | 0 tokens | 9010ms | stop` because the result has no `model`, `usage`, or `finish_reason` fields.
+### 3. `src/pages/MainLayout.tsx` -- Add effect to handle webhook completion
 
-Additionally, the tracing logic at lines 476-488 records a "success" span with empty output and zero tokens for what is actually an in-progress background operation.
-
-## Root Cause
-
-Missing `interruptType === 'long_running'` handling in the question loop at lines 410-439 of `MainLayout.tsx`.
-
-## Fix (1 file, 1 change)
-
-### `src/pages/MainLayout.tsx` -- lines 436-439
-
-After the existing question interrupt handler (line 435: `continue;`), add a check for `long_running` interrupts before the `break`:
+Add a `useEffect` that reacts to the subscription state:
 
 ```typescript
-          continue; // Loop again with answer
-        }
-        
-        // Check for long-running/webhook interrupt (GPT-5 background mode)
-        if (result?.interrupted && result.interruptType === 'long_running') {
-          const responseId = result.interruptData?.responseId;
-          
-          // Complete tracing span as 'deferred' -- actual result arrives via webhook
-          tracingResult = await tracingPromise;
-          const { traceId, spanId } = tracingResult;
-          if (spanId) {
-            await completeSpan({
-              span_id: spanId,
-              status: 'success',
-              openai_response_id: responseId,
-              output: '[deferred to webhook]',
-              latency_ms: Date.now() - startTime,
-            }).catch(err => console.warn('Failed to complete span:', err));
-          }
-          if (traceId) {
-            await completeTrace({
-              trace_id: traceId,
-              status: 'completed',
-            }).catch(err => console.warn('Failed to complete trace:', err));
-          }
-          
-          toast.info('Background processing started', {
-            description: 'GPT-5 is processing your request. The response will appear automatically when ready.',
-            duration: 5000,
-          });
-          
-          endSingleRun();
-          setRunStartingFor(null);
-          return; // Exit handleRunPrompt entirely -- webhook handler delivers the result
-        }
-        
-        // Normal completion - break the loop
-        break;
+useEffect(() => {
+  if (!pendingWebhookResponseId) return;
+  
+  if (webhookComplete && webhookOutputText) {
+    toast.success('Background response received', {
+      description: webhookOutputText.slice(0, 100) + (webhookOutputText.length > 100 ? '...' : ''),
+      duration: 5000,
+    });
+    
+    // Refresh prompt data if the completed prompt is currently selected
+    if (pendingWebhookPromptId && pendingWebhookPromptId === selectedPromptId) {
+      fetchItemData(pendingWebhookPromptId).then(data => {
+        if (data) setSelectedPromptData(data);
+      });
+    }
+    
+    // Clean up
+    setPendingWebhookResponseId(null);
+    setPendingWebhookPromptId(null);
+    clearWebhookPending();
+  }
+  
+  if (webhookFailed) {
+    toast.error('Background request failed', {
+      description: webhookErrorMessage || 'The background AI request did not complete successfully.',
+      duration: 8000,
+    });
+    
+    setPendingWebhookResponseId(null);
+    setPendingWebhookPromptId(null);
+    clearWebhookPending();
+  }
+}, [webhookComplete, webhookFailed, webhookOutputText, webhookErrorMessage,
+    pendingWebhookResponseId, pendingWebhookPromptId, selectedPromptId,
+    fetchItemData, clearWebhookPending]);
 ```
 
-This early-returns from `handleRunPrompt`, which:
-1. Prevents the false success toast (lines 502-505)
-2. Prevents recording zero-token cost data (lines 508-522)
-3. Prevents action execution on empty response (lines 529+)
-4. Shows an info toast so the user knows the request is being processed in the background
-5. Records the tracing span with a `[deferred to webhook]` marker so the trace is not left dangling
+## What This Changes
+
+- `src/pages/MainLayout.tsx` only -- adds ~40 lines of state management and an effect
 
 ## What This Does NOT Change
 
-- No changes to the webhook signature validation or `openai-webhook` edge function
-- No changes to `useConversationRun.ts` (it already handles `long_running_started` correctly)
-- No changes to `usePromptFamilyChatStream.ts` (the Conversation Panel chat path already handles webhook handoff correctly at line 346-361)
-- No changes to the `usePendingResponseSubscription` hook
-- No changes to any other edge function or database table
-- No changes to the question interrupt flow
+- No edge function changes
+- No database changes
+- No changes to `usePendingResponseSubscription` (reused as-is)
+- No changes to the Conversation Panel webhook path
+- No changes to `useConversationRun` or `usePromptFamilyChatStream`
 - No changes to the cascade execution path
 
-## Scope Verification
+## How It Works End-to-End
 
-- Only `src/pages/MainLayout.tsx` is modified
-- The Conversation Panel (chat) path in `usePromptFamilyChatStream.ts` already handles this correctly by detecting `longRunningResponseId`, skipping the success toast, and waiting for the Realtime subscription -- no changes needed there
-- The `PromptFieldsTab.tsx` generate button uses `useConversationRun` directly but through its own handler which does not go through `MainLayout.handleRunPrompt`, so it is unaffected by this change
+```text
+User clicks Run (GPT-5 prompt)
+  -> conversation-run returns long_running_started SSE
+  -> MainLayout sets pendingWebhookResponseId = responseId
+  -> usePendingResponseSubscription subscribes to q_pending_responses via Realtime
+  -> toast.info("Background processing started")
+  
+  ... minutes later ...
+  
+OpenAI webhook fires
+  -> openai-webhook writes output to q_prompts.output_response
+  -> openai-webhook updates q_pending_responses status = 'completed'
+  -> Realtime pushes UPDATE to usePendingResponseSubscription
+  -> useEffect detects webhookComplete = true
+  -> Refreshes prompt data (fetchItemData)
+  -> toast.success("Background response received")
+  -> Clears subscription
+```
+
