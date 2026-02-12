@@ -1491,6 +1491,7 @@ const MainLayout = () => {
                         runProgress={runProgress}
                         isCascadeRunning={isCascadeRunning}
                         singleRunPromptId={singleRunPromptId}
+                        isWaitingForBackground={pendingWebhookResponseId !== null}
                         // Settings props for Phase 6
                         settings={settings}
                         isLoadingSettings={isLoadingSettings}
