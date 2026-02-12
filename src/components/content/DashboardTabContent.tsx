@@ -120,7 +120,7 @@ const DashboardTabContent = () => {
   
   // Auto-scroll for reasoning
   const reasoningRef = useRef<HTMLDivElement>(null);
-  const [_autoScroll, _setAutoScroll] = useState(true);
+  const [autoScroll, setAutoScroll] = useState(true);
 
   // Get the primary active call
   const primaryCall = (activeCalls as any[])?.[0] as any;
@@ -163,16 +163,20 @@ const DashboardTabContent = () => {
 
   // Auto-scroll reasoning
   useEffect(() => {
-    if (_autoScroll && reasoningRef.current && primaryCall?.thinkingSummary) {
+    if (autoScroll && reasoningRef.current && primaryCall?.thinkingSummary) {
       reasoningRef.current.scrollTop = reasoningRef.current.scrollHeight;
     }
-  }, [primaryCall?.thinkingSummary, _autoScroll]);
+  }, [primaryCall?.thinkingSummary, autoScroll]);
 
   // Copy reasoning to clipboard
-  const handleCopyReasoning = () => {
+  const handleCopyReasoning = async () => {
     if (primaryCall?.thinkingSummary) {
-      navigator.clipboard.writeText(primaryCall.thinkingSummary);
-      toast.success('Copied to clipboard');
+      try {
+        await navigator.clipboard.writeText(primaryCall.thinkingSummary);
+        toast.success('Copied to clipboard');
+      } catch {
+        toast.error('Failed to copy');
+      }
     }
   };
 
