@@ -17,6 +17,7 @@ import { SettingDivider } from '@/components/ui/setting-divider';
 import { useDeletedItems } from '@/hooks/useDeletedItems';
 import { useAuth } from '@/contexts/AuthContext';
 import { trackEvent } from '@/lib/posthog';
+import { toast } from '@/components/ui/sonner';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -189,7 +190,11 @@ const DeletedItemsContent = () => {
   }, [deletedItems, activeFilter, searchQuery]);
 
   const handleRestore = async (type: string, rowId: string) => {
-    await restoreItem(type, rowId);
+    try {
+      await restoreItem(type, rowId);
+    } catch {
+      toast.error('Failed to restore item');
+    }
   };
 
   const handleDeleteClick = (type: string, rowId: string, name: string) => {
@@ -197,8 +202,12 @@ const DeletedItemsContent = () => {
   };
 
   const handleConfirmDelete = async () => {
-    if (deleteDialog.type && deleteDialog.rowId) {
-      await permanentlyDeleteItem(deleteDialog.type, deleteDialog.rowId);
+    try {
+      if (deleteDialog.type && deleteDialog.rowId) {
+        await permanentlyDeleteItem(deleteDialog.type, deleteDialog.rowId);
+      }
+    } catch {
+      toast.error('Failed to delete item');
     }
     setDeleteDialog({ open: false, type: null, rowId: null, name: '' });
   };

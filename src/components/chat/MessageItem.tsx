@@ -8,7 +8,7 @@ interface MessageItemProps {
   isStreaming?: boolean;
 }
 
-export const MessageItem = memo<MessageItemProps>(({ msg, isStreaming: _isStreaming }) => (
+export const MessageItem = memo<MessageItemProps>(({ msg, isStreaming }) => (
   <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
     <div 
       className={`max-w-[85%] px-2.5 py-2 rounded-m3-lg text-body-sm ${
@@ -22,6 +22,7 @@ export const MessageItem = memo<MessageItemProps>(({ msg, isStreaming: _isStream
         <Suspense fallback={<div className="animate-pulse h-4 bg-surface-container rounded w-3/4" />}>
           <div className="prose prose-sm max-w-none text-on-surface prose-p:my-1 prose-headings:my-2">
             <ReactMarkdown>{msg.content}</ReactMarkdown>
+            {isStreaming && <span className="inline-block w-1.5 h-4 bg-primary animate-pulse ml-0.5" />}
           </div>
         </Suspense>
       ) : (
@@ -30,7 +31,6 @@ export const MessageItem = memo<MessageItemProps>(({ msg, isStreaming: _isStream
     </div>
   </div>
 ), (prev, next) => {
-  // Only re-render if content or role actually changed
   return prev.msg.content === next.msg.content && 
          prev.msg.role === next.msg.role &&
          prev.msg.row_id === next.msg.row_id &&

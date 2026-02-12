@@ -24,11 +24,11 @@ const STATUS: Record<string, { color: string; text: string; bg: string; label: s
 };
 
 const DATABASE_TABLES = [
-  "q_prompts",
-  "q_templates",
-  "q_threads",
-  "q_ai_costs",
-  "profiles",
+  { key: import.meta.env.VITE_PROMPTS_TBL || 'q_prompts', label: 'Prompts' },
+  { key: import.meta.env.VITE_TEMPLATES_TBL || 'q_templates', label: 'Templates' },
+  { key: import.meta.env.VITE_THREADS_TBL || 'q_threads', label: 'Threads' },
+  { key: import.meta.env.VITE_AI_COSTS_TBL || 'q_ai_costs', label: 'AI Costs' },
+  { key: import.meta.env.VITE_PROFILES_TBL || 'profiles', label: 'Profiles' },
 ];
 
 const API_ENDPOINTS = [
@@ -143,11 +143,11 @@ const DatabaseSection = ({ healthData, isLoading }: SectionProps) => {
           <span className="text-right">Rows</span>
           <span className="text-center">Status</span>
         </div>
-        {DATABASE_TABLES.map((tableName, i) => {
-          const tableData = healthData.tables?.[tableName] || { status: 'pending', count: 0 };
+        {DATABASE_TABLES.map((table, i) => {
+          const tableData = healthData.tables?.[table.key] || { status: 'pending', count: 0 };
           return (
-            <div key={tableName} className={`grid grid-cols-[1fr,80px,100px] gap-3 px-3 py-2 items-center ${i > 0 ? "border-t border-outline-variant" : ""}`}>
-              <span className="text-body-sm text-on-surface font-mono">{tableName}</span>
+            <div key={table.key} className={`grid grid-cols-[1fr,80px,100px] gap-3 px-3 py-2 items-center ${i > 0 ? "border-t border-outline-variant" : ""}`}>
+              <span className="text-body-sm text-on-surface font-mono">{table.label}</span>
               <span className="text-body-sm text-on-surface-variant text-right">{(tableData.count || 0).toLocaleString()}</span>
               <div className="flex justify-center">
                 <StatusBadge status={tableData.status} />
@@ -297,7 +297,7 @@ const ResourcesSection = () => {
 
   useEffect(() => {
     checkAll();
-  }, []);
+  }, [checkAll]);
 
   const handleRepair = async (assistantRowId: string) => {
     setRepairingId(assistantRowId);
@@ -444,22 +444,22 @@ const HealthContent = ({ activeSubItem }: HealthContentProps) => {
     try {
       // Check database connection
       const dbStart = Date.now();
-      const { error: dbError } = await supabase.from('q_prompts').select('count').limit(1);
+      const { error: dbError } = await supabase.from(import.meta.env.VITE_PROMPTS_TBL || 'q_prompts' as any).select('count').limit(1);
       const dbLatency = Date.now() - dbStart;
       const dbResult = dbError 
         ? { status: 'error', message: dbError.message }
         : { status: 'success', message: `Connected (${dbLatency}ms)` };
 
-      // Check tables
+      // Check tables (parallel)
       const tableResults: Record<string, any> = {};
-      for (const table of DATABASE_TABLES) {
+      await Promise.all(DATABASE_TABLES.map(async (table) => {
         try {
-          const { count } = await supabase.from(table as any).select('*', { count: 'exact', head: true });
-          tableResults[table] = { status: 'success', count: count || 0 };
+          const { count } = await supabase.from(table.key as any).select('*', { count: 'exact', head: true });
+          tableResults[table.key] = { status: 'success', count: count || 0 };
         } catch {
-          tableResults[table] = { status: 'error', count: 0 };
+          tableResults[table.key] = { status: 'error', count: 0 };
         }
-      }
+      }));
 
       // Check auth
       const { data: { session } } = await supabase.auth.getSession();
