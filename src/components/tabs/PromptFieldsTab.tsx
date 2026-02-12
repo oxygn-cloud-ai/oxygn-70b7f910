@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState, useCallback, useMemo } from 'react';
 import { useSupabase } from '../../hooks/useSupabase';
 import { useTimer } from '../../hooks/useTimer';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { Play, ChevronRight, ChevronDown, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';

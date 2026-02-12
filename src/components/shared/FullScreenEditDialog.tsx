@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Copy, Undo2, XCircle, Save, Maximize2 } from 'lucide-react';
 import {

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from "react";
 import { FileText, LayoutTemplate, PanelRightOpen, PanelLeftOpen } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";

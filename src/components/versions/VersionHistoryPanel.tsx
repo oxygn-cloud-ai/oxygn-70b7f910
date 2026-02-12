@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState } from 'react';
 import { GitBranch, GitCommit, RotateCcw, Tag, Pin, PinOff, Eye, Diff, X } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';

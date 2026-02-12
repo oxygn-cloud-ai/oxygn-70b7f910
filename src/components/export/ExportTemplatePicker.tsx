@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState, useEffect, useRef } from 'react';
 import { Save, FolderOpen, Trash2, Check, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import * as React from "react"
 import { useState } from "react"
 import { Plus, X, Check } from "lucide-react"

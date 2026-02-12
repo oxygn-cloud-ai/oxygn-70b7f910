@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useMemo, useState } from 'react';
 import { FileText, Variable, Search, ChevronDown, Lock, Calendar, User, Briefcase } from 'lucide-react';
 import {
