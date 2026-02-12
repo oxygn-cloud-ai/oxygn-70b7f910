@@ -253,42 +253,6 @@ const MainLayout = () => {
     }
   }, [activeThread?.row_id, fetchMessages]);
   
-  // GPT-5 webhook response delivery effect
-  useEffect(() => {
-    if (!pendingWebhookResponseId) return;
-    
-    if (webhookComplete && webhookOutputText) {
-      toast.success('Background response received', {
-        description: webhookOutputText.slice(0, 100) + (webhookOutputText.length > 100 ? '...' : ''),
-        duration: 5000,
-      });
-      
-      // Refresh prompt data if the completed prompt is currently selected
-      if (pendingWebhookPromptId && pendingWebhookPromptId === selectedPromptId) {
-        fetchItemData(pendingWebhookPromptId).then(data => {
-          if (data) setSelectedPromptData(data);
-        });
-      }
-      
-      setPendingWebhookResponseId(null);
-      setPendingWebhookPromptId(null);
-      clearWebhookPending();
-    }
-    
-    if (webhookFailed) {
-      toast.error('Background request failed', {
-        description: webhookErrorMessage || 'The background AI request did not complete successfully.',
-        duration: 8000,
-      });
-      
-      setPendingWebhookResponseId(null);
-      setPendingWebhookPromptId(null);
-      clearWebhookPending();
-    }
-  }, [webhookComplete, webhookFailed, webhookOutputText, webhookErrorMessage,
-      pendingWebhookResponseId, pendingWebhookPromptId, selectedPromptId,
-      fetchItemData, clearWebhookPending]);
-  
   // Wrap handleAddItem to auto-select newly created prompts
   const handleAddPrompt = useCallback(async (parentId, options) => {
     const result = await handleAddItem(parentId, options);
@@ -327,6 +291,41 @@ const MainLayout = () => {
     errorMessage: webhookErrorMessage,
     clearPendingResponse: clearWebhookPending,
   } = usePendingResponseSubscription(pendingWebhookResponseId);
+  
+  // GPT-5 webhook response delivery effect
+  useEffect(() => {
+    if (!pendingWebhookResponseId) return;
+    
+    if (webhookComplete && webhookOutputText) {
+      toast.success('Background response received', {
+        description: webhookOutputText.slice(0, 100) + (webhookOutputText.length > 100 ? '...' : ''),
+        duration: 5000,
+      });
+      
+      if (pendingWebhookPromptId && pendingWebhookPromptId === selectedPromptId) {
+        fetchItemData(pendingWebhookPromptId).then(data => {
+          if (data) setSelectedPromptData(data);
+        });
+      }
+      
+      setPendingWebhookResponseId(null);
+      setPendingWebhookPromptId(null);
+      clearWebhookPending();
+    }
+    
+    if (webhookFailed) {
+      toast.error('Background request failed', {
+        description: webhookErrorMessage || 'The background AI request did not complete successfully.',
+        duration: 8000,
+      });
+      
+      setPendingWebhookResponseId(null);
+      setPendingWebhookPromptId(null);
+      clearWebhookPending();
+    }
+  }, [webhookComplete, webhookFailed, webhookOutputText, webhookErrorMessage,
+      pendingWebhookResponseId, pendingWebhookPromptId, selectedPromptId,
+      fetchItemData, clearWebhookPending]);
   
   // Combined running state: true if hook is running OR we have an immediate single run request
   const isRunningPrompt = isRunningPromptInternal || singleRunPromptId !== null;
