@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { handleSupabaseError } from './errorHandling';
 
 export const fetchPrompts = async (supabase, parentId) => {

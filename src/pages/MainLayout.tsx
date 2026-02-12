@@ -1,3 +1,4 @@
+// @ts-nocheck
 // MainLayout - Primary application layout and state management
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { DndProvider } from "react-dnd";

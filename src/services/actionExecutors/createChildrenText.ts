@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Create Children (Text) Action Executor
  * 

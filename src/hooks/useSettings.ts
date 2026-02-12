@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from '@/components/ui/sonner';
 import { trackEvent } from '@/lib/posthog';

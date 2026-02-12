@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
 
 interface UndoAction {

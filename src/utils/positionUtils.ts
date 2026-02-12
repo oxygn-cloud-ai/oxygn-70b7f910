@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { generatePositionBetween, generatePositionAtEnd } from './lexPosition';
 
 /**

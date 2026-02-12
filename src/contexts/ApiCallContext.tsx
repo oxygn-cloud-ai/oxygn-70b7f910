@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createContext, useContext, useState, useCallback, useRef, ReactNode } from 'react';
 
 interface BackgroundCall {

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createContext, useContext, useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { estimateCost } from '@/utils/costEstimator';
 

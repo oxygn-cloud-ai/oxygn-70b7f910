@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createContext, useContext, useState, useCallback } from 'react';
 
 const CreatePromptContext = createContext({

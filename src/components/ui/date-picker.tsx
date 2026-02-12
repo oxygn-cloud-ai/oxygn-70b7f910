@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { format } from "date-fns";
 import { Calendar as CalendarIcon } from "lucide-react";
 

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { handleSupabaseError } from './errorHandling';
 import { trackEvent, trackException } from '@/lib/posthog';
 

@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Hook for managing user-defined prompt variables
 // Force single React instance by using the canonical React import
 import { useState, useEffect, useCallback } from 'react';

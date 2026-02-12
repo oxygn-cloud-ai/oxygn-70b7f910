@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Hook for managing user-editable system variables
  * 

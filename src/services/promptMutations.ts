@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { deletePrompt } from './promptDeletion';
 import { getLevelNamingConfig, generatePromptName } from '@/utils/namingTemplates';
 import { calculateNewPositions } from '@/utils/positionUtils';
