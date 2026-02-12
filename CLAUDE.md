@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-OXYGN is an AI orchestration platform for building, managing, and executing complex AI workflows. It provides a visual interface for prompt execution, conversation management, and cascade workflows primarily targeting OpenAI models (with Anthropic support). It includes integrations with Confluence, Figma, Jira, Manus, and PostHog.
+OXYGN is an AI orchestration platform for building, managing, and executing complex AI workflows. It provides a visual interface for prompt execution, conversation management, and cascade workflows primarily targeting OpenAI models (with Anthropic support). It includes integrations with Confluence, Figma, Jira, Manus, and PostHog. The product name is **Qonsol** (visible in browser title), built by **Oxygn**.
 
 ## Development Commands
 
@@ -15,6 +15,8 @@ npm run build:dev    # Development build
 npm run lint         # ESLint with zero-warnings policy
 npm run preview      # Preview production build
 ```
+
+**Testing**: No test infrastructure exists (no Jest, Vitest, test files, or test scripts). There are zero tests in the codebase.
 
 ## Architecture
 
@@ -28,6 +30,16 @@ npm run preview      # Preview production build
 - **Drag & Drop**: React DnD
 - **Toasts**: Sonner
 - **Analytics**: PostHog (`src/lib/posthog.ts`)
+
+### Tailwind Customization
+
+- **Custom colors**: `chocolate` palette (ruby, espresso, dark, milk), Material Design 3 tokens (surface, on-surface, outline, secondary-container, tertiary)
+- **Font**: Poppins (loaded from Google Fonts, weights 300-700) for sans, serif, and mono
+- **Custom animations**: shimmer, pulse-soft, attention-flash, accordion-down/up
+- **Custom shadows**: warm, warm-lg, ruby-glow
+- **Plugins**: `tailwindcss-animate`, `@tailwindcss/typography`
+- **Dark mode**: Class-based
+- **Border radius**: M3 shape scale (xs, m3-sm through m3-full)
 
 ### Key Directory Structure
 ```
@@ -126,6 +138,96 @@ Non-provider components also nested within: `PostHogPageView`, `NavigationGuard`
 - `createJiraTicket` - Create Jira issues
 - `processVariableAssignments` - Assign output to variables
 
+### Cascade Execution State Machine
+
+The cascade executor (`useCascadeExecutor.ts` + `CascadeRunContext.tsx`) is the most complex subsystem:
+
+**State transitions:**
+```
+idle → startCascade() → isRunning
+isRunning → pause() → isPaused
+isPaused → resume() → isRunning
+isRunning → cancel() → isCancelling → idle
+isRunning → completeCascade() → idle
+```
+
+**Ref-based flags**: Uses `cancelRef` and `pauseRef` instead of useState for synchronous cancellation/pause checks within the executor loop (avoids re-render delays).
+
+**Promise-based dialog resolution**: Error, action preview, and question dialogs resolve via promises stored in refs:
+- `showError()` → `Promise<'retry'|'skip'|'stop'>`
+- `showActionPreview()` → `Promise<boolean>`
+- `showQuestion()` → `Promise<string|null>`
+
+**Variable resolution hierarchy** (later overwrites earlier):
+1. System variables (`q.today`, `q.user.name`, `q.parent.prompt.name`)
+2. Cascade variables (`cascade_previous_response`, `cascade_all_responses`)
+3. Q.ref variables (`q.ref[UUID].output_response`) — from already-executed prompts
+4. User-defined variables (prompt-specific)
+
+Note: `q.parent.prompt.name` uses the IMMEDIATE parent, not the top-level root.
+
+**Retry logic**: Max 3 retries for transient errors. Rate limit waits (max 12 per prompt, ~60s total) are counted separately and don't increment `retryCount`.
+
+**Cancel handler registration**: Executor registers a `cancelFn` via `registerCancelHandler()` that can abort OpenAI requests and clean up Manus tasks before UI reflects cancellation.
+
+**Manus task execution**: Creates task via edge function, then sets up Realtime subscription + 2s polling interval with 30-minute timeout. Waits for: completed | failed | cancelled | requires_input.
+
+**Action node handling**: Extract JSON from response → validate against schema → show preview dialog (unless `skip_preview`) → execute post-action → if `auto_run_children`: recursively execute child cascade.
+
+### SSE Streaming Details
+
+**Parser** (`sseStreamParser.ts`): Line-by-line buffer parsing with incomplete line carryover between chunks.
+
+**Event types handled**: `api_started`, `thinking_started/delta/done`, `output_text_delta`, `usage_delta`, `complete`, `user_input_required`, `long_running_started`, `error`
+
+**Dashboard integration** (`LiveApiDashboardContext`):
+- Output text debounced at 120ms (prevents excessive re-renders from streaming deltas)
+- Token increments batched at 200ms (enables streaming speed calculation)
+- Cumulative stats tracked only for cascade calls
+
+**True cancellation flow**: Capture `response_id` → abort client stream (`AbortController`) → call `conversation-cancel` edge function → update UI state. This order prevents race conditions.
+
+**Question node resume**: If result has `interruptType === 'question'`, loops: show question dialog → call `runConversation()` with `resumeResponseId` + answer → repeat if still interrupted.
+
+### Realtime Configuration
+
+Only **two tables** are published for Supabase Realtime (both with `REPLICA IDENTITY FULL`):
+- `q_manus_tasks`
+- `q_pending_responses`
+
+Do NOT expect realtime subscriptions on `q_prompts`, `q_threads`, or other tables.
+
+### Tree / Save / Undo Patterns
+
+**Tree operations** (`useTreeOperations.ts`): Add, delete (soft via `is_deleted: true`), move, duplicate, batch ops. All follow the pattern: mutate → `refreshTreeData()` → toast with undo.
+
+**Prompt data** (`usePromptData.ts`): Fetches prompt with joined assistant. For child prompts, walks up tree to find root prompt's assistant (all prompts in a family share the root's assistant for file storage).
+
+**Field-level undo** (`useFieldUndo.ts`): Per-field stack (max 10 entries), scoped to `entityId`. Resets when switching prompts, preserves stack when same prompt saves.
+
+**Selection persistence**: `selectedPromptId` and `expandedFolders` stored in localStorage with `qonsol-*` keys.
+
+### Layout State
+
+All panel states persisted to localStorage:
+- `qonsol-folder-panel-open`, `qonsol-nav-rail-open`, `qonsol-reading-pane-open`, `qonsol-conversation-panel-open`
+- `qonsol-active-nav` (default: 'prompts')
+- `qonsol-selected-prompt-id`, `qonsol-expanded-folders`
+- `handleResetLayout()` clears all `qonsol-panel-layout` keys and resets panels to defaults
+
+### Keyboard Shortcuts
+
+| Shortcut | Action | Works While Typing |
+|----------|--------|-------------------|
+| Cmd/Ctrl+B | Toggle folder panel | Yes |
+| Cmd/Ctrl+J | Toggle conversation panel | Yes |
+| Cmd/Ctrl+S | Save current item | Yes |
+| Cmd/Ctrl+Enter | Run prompt | No |
+| Escape | Close modals/panels | No |
+| Cmd/Ctrl+Z | Undo last action | Yes |
+
+Typing detection checks: `INPUT`, `TEXTAREA`, `SELECT` elements and `isContentEditable`.
+
 ### Services (`src/services/`)
 
 - `promptService.ts` - Prompt operations orchestration
@@ -171,6 +273,60 @@ Non-provider components also nested within: `PostHogPageView`, `NavigationGuard`
 - `profiles` - User profiles
 - `projects` - Project records
 
+### Database Functions & Triggers (28 total)
+
+**RLS helpers** (used in ~90% of policies):
+- `current_user_has_allowed_domain()` - Domain whitelist check (hardcoded: `chocfin.com`, `oxygn.cloud`). Adding a new domain requires a migration.
+- `is_admin(user_id)` - Admin role lookup via `user_roles` table
+- `owns_prompt(user_id, prompt_id)` - Recursive ancestor chain ownership check
+- `can_read_resource()` / `can_edit_resource()` - Explicit resource share lookup
+- `can_version_prompt()` - Version creation permission (admin or owner + resource_shares with 'edit')
+
+**Prompt family triggers**:
+- `compute_root_prompt_row_id()` - TRIGGER: walks parent chain with cycle detection (max 20 hops). Never update `root_prompt_row_id` manually.
+- `increment_family_version()` - TRIGGER: bumps root prompt's `family_version` on structural changes (used for cache invalidation)
+- `mark_prompt_uncommitted()` - TRIGGER: tracks 65+ specific fields for change detection. New fields require trigger update for auto-detection.
+
+**Version history**:
+- `create_prompt_version()` - Creates JSONB snapshot with `fields_changed` tracking and locking
+- `rollback_prompt_version()` - Auto-creates backup before rollback
+- `build_prompt_snapshot()` - Builds complete state (44 fields across 4 parts to avoid 100-arg limit)
+- `calculate_changed_fields()` - Diffs snapshots to track what changed
+- `cleanup_old_prompt_versions(max_age_days=90, min_versions_to_keep=10)` - Admin-only retention
+
+**Credentials & encryption**:
+- `encrypt_credential()` / `encrypt_system_credential()` - PGP symmetric encryption
+- `decrypt_credential()` / `decrypt_credential_with_fallback()` - Decryption with system-first fallback
+
+**Validation triggers**:
+- `enforce_prompt_action_invariants()` - Validates `post_action` config based on `node_type`
+- `validate_response_format()` - Ensures valid JSON Schema for `response_format`
+
+**Cleanup functions** (all manual, no pg_cron configured):
+- `cleanup_orphaned_manus_tasks()` - Marks pending tasks failed after 2 hours
+- `cleanup_orphaned_pending_responses()` - Marks pending responses failed after 2 hours
+- `cleanup_old_pending_responses()` - Deletes completed responses after 30 days
+- `cleanup_old_rate_limits()` / `cleanup_orphaned_traces()` - Data retention
+
+**User management**:
+- `handle_new_user()` - TRIGGER on auth user creation to backfill profiles
+- `set_thread_owner()` / `set_assistant_owner()` - TRIGGER: auto-set owner_id on insert
+- `get_user_email(user_id)` - Fetch email from profiles
+
+### RLS Policy Patterns
+
+~332 RLS policies across all tables. Common patterns:
+
+**Pattern 1 — Domain-gated** (~90% of tables): `USING (current_user_has_allowed_domain())`. If user's email domain changes, they lose access silently.
+
+**Pattern 2 — Owner + Admin**: `USING (owner_id = auth.uid() OR is_admin(auth.uid()))`
+
+**Pattern 3 — Admin-only**: `USING (is_admin(auth.uid()))` — for delete policies, system credentials, cleanup functions.
+
+**Pattern 4 — Shared resources**: Checks `resource_shares` table for explicit read/edit grants.
+
+**Pattern 5 — View security**: `prompt_owner_emails` view uses `WITH (security_invoker = true)` to inherit RLS from underlying tables.
+
 ### Edge Functions (26 total)
 
 All require JWT except where noted:
@@ -215,6 +371,38 @@ All require JWT except where noted:
 - `test-openai-delete` - Test function for OpenAI DELETE API
 - `_shared/` - Shared utility modules used across functions
 
+### Edge Function Developer Guide
+
+When adding a new edge function, follow these patterns from `_shared/`:
+
+**CORS** (`_shared/cors.ts`): Centralized CORS handler with whitelisted origins (`qonsol.app`, `www.qonsol.app`, `*.lovable.app` previews, `localhost:8080/5173/3000`). No wildcard `*`. Always import `getCorsHeaders` and `handleCorsOptions` — never hardcode CORS headers.
+
+**Authentication**: Use `SUPABASE_ANON_KEY` with the request's auth header for RLS enforcement. Use `SUPABASE_SERVICE_ROLE_KEY` ONLY for operations that need to bypass RLS (webhook processing, internal cleanup).
+
+**Credentials** (`_shared/credentials.ts`): User API keys are fetched via inter-function call to `credentials-manager` (never from env vars). Available helpers: `getOpenAIApiKey()`, `getAnthropicApiKey()`, `getManusApiKey()`, `getGeminiApiKey()`, `getFigmaAccessToken()`. 5-second timeout — returns `null` on failure (no fallback to env vars).
+
+**Validation** (`_shared/validation.ts`): Lightweight runtime checks (no Zod, for faster cold starts). Provides `isValidUUID()`, `isNonEmptyString()`, `isPositiveInteger()`, `isObject()`, and action-specific validators like `validateThreadManagerInput()`, `validateOpenAIProxyInput()`, etc.
+
+**Error codes** (`_shared/errorCodes.ts`): Standardized error system with HTTP status, recoverable flag, and user message. Use `buildErrorResponse(ERROR_CODES.OPENAI_NOT_CONFIGURED)` and `getHttpStatus()`. Categories: Auth, API Keys, Validation, Rate Limiting, Timeouts, Provider-specific.
+
+**Tables** (`_shared/tables.ts`): Always reference tables via `TABLES.*` constants (e.g., `TABLES.PROMPTS`, `TABLES.AI_COSTS`). Never hardcode table names — they're overridable via env vars.
+
+**Models** (`_shared/models.ts`): Models configured in database, not hardcoded. Use `resolveApiModelId()` to map user-friendly names to API model IDs. `fetchModelConfig()` returns capabilities, token param name, pricing, and provider details.
+
+**Webhook signatures**: OpenAI uses Standard Webhooks (HMAC-SHA256) via `webhook-id`/`webhook-timestamp`/`webhook-signature` headers. Manus uses RSA signature verification via `X-Webhook-Signature`/`X-Webhook-Timestamp` headers with public key fetched from Manus API (cached 1 hour). Both verify timestamp within 5 minutes.
+
+**Streaming responses**: Use `Content-Type: text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive`. Include CORS headers in streaming responses.
+
+**Long-running detection**: GPT-5 models are routed to webhook mode (creates `q_pending_responses` record) to avoid edge function timeout (10 min limit).
+
+### Anthropic Integration
+
+The `_shared/anthropic.ts` module handles OpenAI-to-Anthropic format conversion:
+- `max_tokens` is **required** for Anthropic (unlike OpenAI which has defaults)
+- System message extracted to top-level `system` parameter
+- Stateless — full message history required with each request
+- Stream events have different structure — use `parseAnthropicStreamEvent()` adapter
+
 ### Integrations
 
 - **Confluence**: Export, page sync, search (`confluence-manager` edge function, `useConfluenceExport`/`useConfluencePages` hooks, `ConfluenceSearchModal`/`ConfluencePagesSection` components)
@@ -227,6 +415,10 @@ All require JWT except where noted:
 - `@/*` maps to `src/*` (configured in tsconfig.json and vite.config.ts)
 - `lib` maps to `./lib` (in vite.config.ts)
 
+## CI/CD
+
+`.github/workflows/auto-release.yml` — triggers on push to `main` branch (Lovable sync) and manual `workflow_dispatch`. Creates GitHub releases tagged `v-<short-sha>` with auto-generated release notes using `softprops/action-gh-release@v2`.
+
 ## Environment Variables
 
 Uses `VITE_` prefixed environment variables for:
@@ -236,12 +428,24 @@ Uses `VITE_` prefixed environment variables for:
 
 No `.env.example` exists — refer to `.env` for required variables.
 
+Edge functions use:
+- `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+- `CREDENTIALS_ENCRYPTION_KEY` (used only by `credentials-manager`)
+- `OPENAI_WEBHOOK_SECRET` (optional, for webhook signature verification)
+
+## Build & Tooling Configuration
+
+- **shadcn/ui** (`components.json`): Style `default`, base color `slate`, RSC disabled, `tsx: false` (shadcn components use `.jsx`/`.js` extensions despite TypeScript elsewhere)
+- **ESLint** (`.eslintrc.cjs`): Extends `eslint:recommended`, `plugin:react/recommended`, `plugin:react-hooks/recommended`. React-refresh plugin enabled. `react/prop-types` disabled (TypeScript used instead). Zero warnings enforced (`--max-warnings 0`).
+- **TypeScript** (`tsconfig.json`): Target ES2020, strict mode, `noUnusedLocals`, `noUnusedParameters`, `noFallthroughCasesInSwitch` all enabled.
+- **Vite** (`vite.config.ts`): Port 8080, React plugin + `lovable-tagger` in dev mode, React/ReactDOM deduplication, CommonJS mixed modules support.
+
 ## Important Considerations
 
 - Uses fractional indexing (`lexPosition.ts`) for ordering items in lists
 - SSE parsing handled by `sseStreamParser.ts` for streaming responses
 - Cost tracking per execution stored in `q_ai_costs`
-- Multi-tenant with Row-Level Security on all tables
+- Multi-tenant with Row-Level Security on all tables (see RLS Policy Patterns above)
 - Lovable AI is used for development with automatic Git commits (lovable-tagger plugin in vite.config.ts)
 - Both `npm` (package-lock.json) and `bun` (bun.lockb) lock files exist
 - Thread `purpose` column separates "chat" vs "run" tracks
@@ -249,3 +453,9 @@ No `.env.example` exists — refer to `.env` for required variables.
 - TypeScript strict mode enabled with no unused variables/parameters
 - Credentials encrypted at rest via `pgp_sym_encrypt`; frontend only sees status flags, never raw keys
 - System credentials (admin-managed) override user credentials via DB fallback functions
+- No `pg_cron` configured — all cleanup functions (orphaned tasks, old versions, pending responses) are manual/admin-triggered. Without periodic calls, data accumulates indefinitely.
+- Prompt family hierarchy max depth is 20 hops (cycle detection trigger). `root_prompt_row_id` is auto-computed — never update manually.
+- `mark_prompt_uncommitted` trigger watches 65+ fields. Adding new prompt fields requires updating the trigger for auto-detection.
+- Version numbers are per-prompt (V1, V2, V3...). Deleting versions does not renumber them.
+- Only `q_manus_tasks` and `q_pending_responses` have Realtime enabled. Other tables do not support realtime subscriptions.
+- Domain whitelist for RLS is hardcoded (`chocfin.com`, `oxygn.cloud`). Adding new domains requires a SQL migration.
