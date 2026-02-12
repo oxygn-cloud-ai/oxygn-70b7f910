@@ -236,9 +236,10 @@ BEFORE INSERT ON public.cyg_threads
 FOR EACH ROW
 EXECUTE FUNCTION public.set_thread_owner();
 
--- 7. Set james@chocfin.com as admin
+-- 7. Set james@chocfin.com as admin (only if user exists)
 INSERT INTO public.user_roles (user_id, role)
-VALUES ('832f0635-fa47-47be-919e-cc3a4e263cd9', 'admin');
+SELECT '832f0635-fa47-47be-919e-cc3a4e263cd9', 'admin'
+WHERE EXISTS (SELECT 1 FROM auth.users WHERE id = '832f0635-fa47-47be-919e-cc3a4e263cd9');
 
 -- 8. Migrate existing data - set james as owner of all existing records
 -- Update cyg_prompts

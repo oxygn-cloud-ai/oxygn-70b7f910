@@ -193,9 +193,10 @@ ON public.cyg_threads FOR UPDATE USING (true);
 CREATE POLICY "Public delete access for threads"
 ON public.cyg_threads FOR DELETE USING (true);
 
--- 7. Create storage bucket for assistant files
+-- 7. Create storage bucket for assistant files (skip if already exists from pg_dump)
 INSERT INTO storage.buckets (id, name, public)
-VALUES ('assistant-files', 'assistant-files', false);
+VALUES ('assistant-files', 'assistant-files', false)
+ON CONFLICT (id) DO NOTHING;
 
 -- Storage RLS policies
 CREATE POLICY "Allow authenticated uploads to assistant-files"

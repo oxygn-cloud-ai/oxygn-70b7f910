@@ -10,19 +10,19 @@ WHERE model_id IN ('gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-
 
 -- Step 3: Add missing reasoning models (o1, o1-mini, o3, o4-mini)
 INSERT INTO q_models (
-  model_id, model_name, provider, is_active, 
+  model_id, model_name, provider, is_active,
   api_model_id, context_window, max_output_tokens,
   token_param, supports_temperature, supports_reasoning_effort,
   reasoning_effort_levels, supported_settings, supported_tools,
   input_cost_per_million, output_cost_per_million,
   api_base_url, auth_header_name, auth_header_format
-) VALUES 
+) VALUES
 -- o1
 (
   'o1', 'o1', 'openai', true,
   'o1', 200000, 100000,
   'max_completion_tokens', false, true,
-  ARRAY['low', 'medium', 'high'], 
+  ARRAY['low', 'medium', 'high'],
   ARRAY['seed', 'tool_choice', 'reasoning_effort', 'response_format', 'max_output_tokens'],
   ARRAY['web_search', 'code_interpreter', 'file_search'],
   15.00, 60.00,
@@ -60,4 +60,22 @@ INSERT INTO q_models (
   ARRAY['web_search', 'code_interpreter', 'file_search'],
   1.10, 4.40,
   'https://api.openai.com/v1', 'Authorization', 'Bearer {key}'
-);
+)
+ON CONFLICT (model_id) DO UPDATE SET
+  model_name = EXCLUDED.model_name,
+  provider = EXCLUDED.provider,
+  is_active = EXCLUDED.is_active,
+  api_model_id = EXCLUDED.api_model_id,
+  context_window = EXCLUDED.context_window,
+  max_output_tokens = EXCLUDED.max_output_tokens,
+  token_param = EXCLUDED.token_param,
+  supports_temperature = EXCLUDED.supports_temperature,
+  supports_reasoning_effort = EXCLUDED.supports_reasoning_effort,
+  reasoning_effort_levels = EXCLUDED.reasoning_effort_levels,
+  supported_settings = EXCLUDED.supported_settings,
+  supported_tools = EXCLUDED.supported_tools,
+  input_cost_per_million = EXCLUDED.input_cost_per_million,
+  output_cost_per_million = EXCLUDED.output_cost_per_million,
+  api_base_url = EXCLUDED.api_base_url,
+  auth_header_name = EXCLUDED.auth_header_name,
+  auth_header_format = EXCLUDED.auth_header_format;

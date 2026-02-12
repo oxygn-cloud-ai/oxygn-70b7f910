@@ -269,7 +269,8 @@ EXECUTE FUNCTION public.update_updated_at_column();
 -- =============================================
 
 INSERT INTO storage.buckets (id, name, public, file_size_limit)
-VALUES ('workbench-files', 'workbench-files', false, 52428800);
+VALUES ('workbench-files', 'workbench-files', false, 52428800)
+ON CONFLICT (id) DO NOTHING;
 
 -- Storage policies for workbench-files bucket
 CREATE POLICY "Users can upload workbench files"
