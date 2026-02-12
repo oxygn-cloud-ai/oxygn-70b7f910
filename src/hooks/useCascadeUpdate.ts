@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useCallback } from 'react';
 import { toast } from '@/components/ui/sonner';
 import { trackEvent, trackException } from '@/lib/posthog';

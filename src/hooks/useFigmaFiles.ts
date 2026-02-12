@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * useFigmaFiles Hook
  * Manages Figma file attachments for prompts

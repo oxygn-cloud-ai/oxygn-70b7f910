@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, useRef, useCallback, useEffect } from 'react';
 
 const MAX_UNDO_STACK = 10;

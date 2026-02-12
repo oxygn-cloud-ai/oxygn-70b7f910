@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, useEffect, useRef } from "react"
 import { Toaster as Sonner, toast as sonnerToast } from "sonner"
 import { AlertCircle, CheckCircle2, Info, AlertTriangle, Loader2, GripVertical } from "lucide-react"

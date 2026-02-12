@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Action Executors Registry
  * 

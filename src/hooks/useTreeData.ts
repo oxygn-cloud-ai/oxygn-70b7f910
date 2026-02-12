@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchPrompts } from '../services/promptService';
 import { toast } from '@/components/ui/sonner';

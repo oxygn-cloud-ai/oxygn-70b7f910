@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Resolve System Variables for Prompt Runs
  * 

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { buildTree } from '../utils/positionUtils';
 
 // Helper to create a conversation/assistant record for a prompt

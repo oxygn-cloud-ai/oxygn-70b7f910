@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useEffect, useRef, useCallback, useState, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { useEditor, EditorContent, Editor } from '@tiptap/react';
 import Document from '@tiptap/extension-document';

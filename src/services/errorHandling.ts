@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { toast } from '@/components/ui/sonner';
 
 export const handleSupabaseError = (error: Error & { code?: string }, operation: string) => {

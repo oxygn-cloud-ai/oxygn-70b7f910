@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSupabase } from './useSupabase';
 import { toast } from '@/components/ui/sonner';

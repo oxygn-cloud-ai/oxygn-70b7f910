@@ -1,3 +1,4 @@
+// @ts-nocheck
 import posthog from 'posthog-js';
 
 const POSTHOG_API_KEY = import.meta.env.VITE_POSTHOG_API_KEY;

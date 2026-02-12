@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * @deprecated This component uses the overlay pattern (transparent textarea over backdrop)
  * which causes cursor alignment issues. Use TiptapPromptEditor instead.

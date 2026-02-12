@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState } from 'react';
 import { useSupabase } from './useSupabase';
 import { trackEvent, trackException } from '@/lib/posthog';

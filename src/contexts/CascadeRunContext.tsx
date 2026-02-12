@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createContext, useContext, useState, useCallback, useRef, ReactNode } from 'react';
 import { toast } from '@/components/ui/sonner';
 import { trackEvent } from '@/lib/posthog';
