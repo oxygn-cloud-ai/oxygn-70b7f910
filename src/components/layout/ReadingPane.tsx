@@ -42,6 +42,8 @@ const ReadingPane = ({
   // Cascade lock
   isCascadeRunning = false,
   singleRunPromptId = null,
+  // Background processing indicator
+  isWaitingForBackground = false,
   // Settings props - Phase 6
   settings = {},
   isLoadingSettings = false,
@@ -199,6 +201,7 @@ const ReadingPane = ({
       onEditSchema={onEditSchema}
       isCascadeRunning={isCascadeRunning}
       singleRunPromptId={singleRunPromptId}
+      isWaitingForBackground={isWaitingForBackground}
     />
   );
 };
