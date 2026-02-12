@@ -52,15 +52,24 @@ async function verifyWebhookSignature(
   const webhookSignature = req.headers.get('webhook-signature');
   
   if (!webhookId || !webhookTimestamp || !webhookSignature) {
-    console.error('[openai-webhook] Missing signature headers');
+    console.error('[openai-webhook] [DIAG] Missing signature headers:', {
+      hasWebhookId: !!webhookId,
+      hasWebhookTimestamp: !!webhookTimestamp,
+      hasWebhookSignature: !!webhookSignature,
+    });
     return false;
   }
   
   // Check timestamp is within 5 minutes (300 seconds)
   const timestamp = parseInt(webhookTimestamp, 10);
   const now = Math.floor(Date.now() / 1000);
-  if (Math.abs(now - timestamp) > 300) {
-    console.error('[openai-webhook] Timestamp outside acceptable range:', { timestamp, now });
+  const deltaSeconds = Math.abs(now - timestamp);
+  if (deltaSeconds > 300) {
+    console.error('[openai-webhook] [DIAG] Timestamp outside acceptable range:', {
+      timestamp,
+      now,
+      deltaSeconds,
+    });
     return false;
   }
   
@@ -91,9 +100,26 @@ async function verifyWebhookSignature(
     );
     
     // Check if computed signature matches any provided signature
-    return webhookSignature.split(' ').some(sig => sig === computedSignature);
-  } catch (error) {
-    console.error('[openai-webhook] Signature verification error:', error);
+    const receivedSignatures = webhookSignature.split(' ');
+    const matched = receivedSignatures.some(sig => sig === computedSignature);
+    
+    if (!matched) {
+      console.error('[openai-webhook] [DIAG] Signature mismatch:', {
+        computedPrefix: computedSignature.slice(0, 20) + '...',
+        receivedPrefixes: receivedSignatures.map(s => s.slice(0, 20) + '...'),
+        secretLength: secret.length,
+        hasWhsecPrefix: secret.startsWith('whsec_'),
+        bodyLength: body.length,
+      });
+    }
+    
+    return matched;
+  } catch (error: unknown) {
+    console.error('[openai-webhook] [DIAG] Signature verification error:', {
+      error: error instanceof Error ? error.message : String(error),
+      secretLength: secret.length,
+      hasWhsecPrefix: secret.startsWith('whsec_'),
+    });
     return false;
   }
 }
@@ -119,9 +145,13 @@ serve(async (req) => {
   // Verify signature if secret is configured
   const webhookSecret = Deno.env.get('OPENAI_WEBHOOK_SECRET');
   if (webhookSecret) {
+    console.log('[openai-webhook] [DIAG] Verifying signature:', {
+      secretLength: webhookSecret.length,
+      hasWhsecPrefix: webhookSecret.startsWith('whsec_'),
+    });
     const isValid = await verifyWebhookSignature(req, body, webhookSecret);
     if (!isValid) {
-      console.error('[openai-webhook] Invalid webhook signature');
+      console.error('[openai-webhook] Invalid webhook signature - see [DIAG] logs above');
       return new Response('Unauthorized', { status: 401 });
     }
   } else {
