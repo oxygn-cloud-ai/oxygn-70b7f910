@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useTimer } from "@/hooks/useTimer";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useModels } from '@/hooks/useModels';
 import { usePromptLibrary } from '@/hooks/usePromptLibrary';

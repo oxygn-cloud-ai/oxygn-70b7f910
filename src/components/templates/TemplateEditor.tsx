@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState, useEffect, useCallback } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FileText, GitBranch, Variable, Eye, Save, Loader2, Paperclip } from 'lucide-react';

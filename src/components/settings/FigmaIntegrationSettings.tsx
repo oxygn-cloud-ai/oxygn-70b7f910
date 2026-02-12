@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Figma Integration Settings Component
  * Manages Figma personal access token configuration

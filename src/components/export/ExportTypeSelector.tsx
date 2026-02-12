@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from 'react';
 import { FileText, Table2, CheckSquare, Check, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';

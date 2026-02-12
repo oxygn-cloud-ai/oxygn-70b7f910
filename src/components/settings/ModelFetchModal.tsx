@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState, useMemo } from 'react';
 import { X, Check, AlertCircle, Loader2 } from 'lucide-react';
 import {

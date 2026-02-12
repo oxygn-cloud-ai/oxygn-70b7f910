@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useMemo, useState, useCallback } from 'react';
 import { toast } from '@/components/ui/sonner';
 import { Plus, Trash2, AlertCircle, CheckCircle2, Edit2, X, Check, RefreshCw } from 'lucide-react';

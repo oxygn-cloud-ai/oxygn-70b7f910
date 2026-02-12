@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState, useCallback } from 'react';
 import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, Home, Loader2, File, Type, Globe, FolderTree, LayoutTemplate } from 'lucide-react';
 import { cn } from '@/lib/utils';

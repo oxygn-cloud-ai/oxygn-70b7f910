@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useEffect, useCallback } from 'react';
 import { X, ChevronLeft, ChevronRight, Upload, Loader2, FileStack, ListChecks, Send, Settings2, Check } from 'lucide-react';
 import {

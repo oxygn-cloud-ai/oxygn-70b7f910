@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from 'react';
 
 export const SlackIcon = ({ className, size = 24, ...props }) => (

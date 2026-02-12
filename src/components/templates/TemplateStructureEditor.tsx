@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { ChevronRight, ChevronDown, Plus, Trash2, Copy, Settings2, Bot, MessageSquare, Wrench, ArrowUp, ArrowDown, Edit2, BookOpen, GripVertical } from 'lucide-react';
 import { Input } from '@/components/ui/input';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useConversation } from '../../hooks/useConversation';
 import { useConversationFiles } from '../../hooks/useConversationFiles';

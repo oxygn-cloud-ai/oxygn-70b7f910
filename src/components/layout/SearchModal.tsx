@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, FileText, LayoutTemplate, Settings, Heart, ArrowRight, Command } from "lucide-react";

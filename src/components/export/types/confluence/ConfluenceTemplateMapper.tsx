@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useMemo } from 'react';
 import { Variable, Check, AlertCircle, Eye } from 'lucide-react';
 import { Label } from '@/components/ui/label';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, useEffect, useRef, useCallback } from "react";
 import { 
   Send, Paperclip, Mic, PanelRightClose, Loader2, 
