@@ -51,6 +51,7 @@ import { useApiCallContext } from "@/contexts/ApiCallContext";
 import { useExecutionTracing } from "@/hooks/useExecutionTracing";
 import { usePendingSaves } from "@/contexts/PendingSaveContext";
 import CascadeRunProgress from "@/components/CascadeRunProgress";
+import { usePendingResponseSubscription } from '@/hooks/usePendingResponseSubscription';
 
 // Initial loading screen component
 const LoadingScreen = () => (
@@ -252,6 +253,42 @@ const MainLayout = () => {
     }
   }, [activeThread?.row_id, fetchMessages]);
   
+  // GPT-5 webhook response delivery effect
+  useEffect(() => {
+    if (!pendingWebhookResponseId) return;
+    
+    if (webhookComplete && webhookOutputText) {
+      toast.success('Background response received', {
+        description: webhookOutputText.slice(0, 100) + (webhookOutputText.length > 100 ? '...' : ''),
+        duration: 5000,
+      });
+      
+      // Refresh prompt data if the completed prompt is currently selected
+      if (pendingWebhookPromptId && pendingWebhookPromptId === selectedPromptId) {
+        fetchItemData(pendingWebhookPromptId).then(data => {
+          if (data) setSelectedPromptData(data);
+        });
+      }
+      
+      setPendingWebhookResponseId(null);
+      setPendingWebhookPromptId(null);
+      clearWebhookPending();
+    }
+    
+    if (webhookFailed) {
+      toast.error('Background request failed', {
+        description: webhookErrorMessage || 'The background AI request did not complete successfully.',
+        duration: 8000,
+      });
+      
+      setPendingWebhookResponseId(null);
+      setPendingWebhookPromptId(null);
+      clearWebhookPending();
+    }
+  }, [webhookComplete, webhookFailed, webhookOutputText, webhookErrorMessage,
+      pendingWebhookResponseId, pendingWebhookPromptId, selectedPromptId,
+      fetchItemData, clearWebhookPending]);
+  
   // Wrap handleAddItem to auto-select newly created prompts
   const handleAddPrompt = useCallback(async (parentId, options) => {
     const result = await handleAddItem(parentId, options);
@@ -279,6 +316,17 @@ const MainLayout = () => {
   // Note: Use isCascadeRunning from useCascadeRun() context as single source of truth
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [runStartingFor, setRunStartingFor] = useState(null); // Debounce state for run button
+  
+  // GPT-5 webhook response delivery state
+  const [pendingWebhookResponseId, setPendingWebhookResponseId] = useState<string | null>(null);
+  const [pendingWebhookPromptId, setPendingWebhookPromptId] = useState<string | null>(null);
+  const {
+    isComplete: webhookComplete,
+    isFailed: webhookFailed,
+    outputText: webhookOutputText,
+    errorMessage: webhookErrorMessage,
+    clearPendingResponse: clearWebhookPending,
+  } = usePendingResponseSubscription(pendingWebhookResponseId);
   
   // Combined running state: true if hook is running OR we have an immediate single run request
   const isRunningPrompt = isRunningPromptInternal || singleRunPromptId !== null;
@@ -457,6 +505,10 @@ const MainLayout = () => {
               status: 'completed',
             }).catch(err => console.warn('Failed to complete trace:', err));
           }
+          
+          // Activate Realtime subscription to receive webhook result
+          setPendingWebhookResponseId(responseId || null);
+          setPendingWebhookPromptId(promptId);
           
           toast.info('Background processing started', {
             description: 'GPT-5 is processing your request. The response will appear automatically when ready.',
