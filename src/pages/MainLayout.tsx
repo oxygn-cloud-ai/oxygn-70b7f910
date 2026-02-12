@@ -435,6 +435,39 @@ const MainLayout = () => {
           continue; // Loop again with answer
         }
         
+        // Check for long-running/webhook interrupt (GPT-5 background mode)
+        if (result?.interrupted && result.interruptType === 'long_running') {
+          const responseId = result.interruptData?.responseId;
+          
+          // Complete tracing span as 'deferred' -- actual result arrives via webhook
+          tracingResult = await tracingPromise;
+          const { traceId, spanId } = tracingResult;
+          if (spanId) {
+            await completeSpan({
+              span_id: spanId,
+              status: 'success',
+              openai_response_id: responseId,
+              output: '[deferred to webhook]',
+              latency_ms: Date.now() - startTime,
+            }).catch(err => console.warn('Failed to complete span:', err));
+          }
+          if (traceId) {
+            await completeTrace({
+              trace_id: traceId,
+              status: 'completed',
+            }).catch(err => console.warn('Failed to complete trace:', err));
+          }
+          
+          toast.info('Background processing started', {
+            description: 'GPT-5 is processing your request. The response will appear automatically when ready.',
+            duration: 5000,
+          });
+          
+          endSingleRun();
+          setRunStartingFor(null);
+          return; // Exit handleRunPrompt entirely -- webhook handler delivers the result
+        }
+        
         // Normal completion - break the loop
         break;
       }
