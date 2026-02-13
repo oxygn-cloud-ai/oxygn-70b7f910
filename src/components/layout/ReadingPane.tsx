@@ -44,6 +44,7 @@ const ReadingPane = ({
   singleRunPromptId = null,
   // Background processing indicator
   isWaitingForBackground = false,
+  backgroundReasoningText = null,
   // Settings props - Phase 6
   settings = {},
   isLoadingSettings = false,
@@ -202,6 +203,7 @@ const ReadingPane = ({
       isCascadeRunning={isCascadeRunning}
       singleRunPromptId={singleRunPromptId}
       isWaitingForBackground={isWaitingForBackground}
+      backgroundReasoningText={backgroundReasoningText}
     />
   );
 };

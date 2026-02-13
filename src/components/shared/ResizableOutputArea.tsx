@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { 
   ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, 
   Copy, Check, Clock, Loader2, Octagon, Bot, CheckCircle2, Link2,
-  SwitchCamera
+  SwitchCamera, Brain
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/sonner";
@@ -103,6 +103,7 @@ const ResizableOutputArea = ({
   storageKey, // Optional key to persist sizing in localStorage
   syntaxHighlight = false, // Enable syntax highlighting for JSON output
   isWaitingForBackground = false,
+  backgroundReasoningText,
 }) => {
   // Generate storage key from label if not provided
   const persistKey = storageKey || (label ? `qonsol-output-height-${label.toLowerCase().replace(/\s+/g, '-')}` : null);
@@ -379,18 +380,41 @@ const ResizableOutputArea = ({
             className="overflow-hidden"
           >
             <div className="flex items-center gap-2 px-2 py-1.5 bg-amber-500/5 rounded-m3-sm border border-amber-500/10">
-              <motion.span
-                animate={{ opacity: [0.4, 1, 0.4] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
-                className="w-1.5 h-1.5 rounded-full bg-amber-500"
-              />
-              <span className="text-[10px] text-amber-500">
-                Waiting for background response...
-              </span>
+              {backgroundReasoningText ? (
+                <>
+                  <Brain className="h-3.5 w-3.5 text-primary animate-pulse" />
+                  <span className="text-label-sm text-on-surface-variant uppercase tracking-wider">
+                    Reasoning...
+                  </span>
+                </>
+              ) : (
+                <>
+                  <motion.span
+                    animate={{ opacity: [0.4, 1, 0.4] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                    className="w-1.5 h-1.5 rounded-full bg-amber-500"
+                  />
+                  <span className="text-[10px] text-amber-500">
+                    Waiting for background response...
+                  </span>
+                </>
+              )}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Background reasoning content */}
+      {isWaitingForBackground && !isRegenerating && backgroundReasoningText && !isCollapsed && (
+        <div 
+          className="bg-surface-container-low rounded-m3-md border border-outline-variant overflow-auto p-2.5"
+          style={{ maxHeight: '300px' }}
+        >
+          <p className="text-body-sm text-on-surface-variant whitespace-pre-wrap leading-relaxed font-sans">
+            {backgroundReasoningText}
+          </p>
+        </div>
+      )}
 
       {/* Content area - resize-y for vertical only */}
       {!isCollapsed && (

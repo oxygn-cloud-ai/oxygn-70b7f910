@@ -199,7 +199,7 @@ const LibraryPickerDropdown = ({ libraryItems = [] }) => {
 
 
 // Prompt Tab Content
-const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedPromptId, isRunningPrompt, formattedTime, variables = [], onCancelRun, runProgress, isLocked = false, isWaitingForBackground = false }) => {
+const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedPromptId, isRunningPrompt, formattedTime, variables = [], onCancelRun, runProgress, isLocked = false, isWaitingForBackground = false, backgroundReasoningText = null }) => {
   // Use real data from promptData, with fallbacks
   const systemPrompt = promptData?.input_admin_prompt || '';
   const userPrompt = promptData?.input_user_prompt || '';
@@ -248,6 +248,7 @@ const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedProm
         progress={runProgress}
         syntaxHighlight={promptData?.node_type === 'action' && promptData?.post_action === 'create_children_json'}
         isWaitingForBackground={isWaitingForBackground}
+        backgroundReasoningText={backgroundReasoningText}
       />
 
       {/* Notes */}
@@ -1320,6 +1321,7 @@ const PromptsContent = ({
   isCascadeRunning = false,
   singleRunPromptId = null,
   isWaitingForBackground = false,
+  backgroundReasoningText = null,
 }) => {
   const [activeTab, setActiveTab] = useState("prompt");
   const [confluenceModalOpen, setConfluenceModalOpen] = useState(false);
@@ -1680,6 +1682,7 @@ const PromptsContent = ({
               runProgress={runProgress}
               isLocked={isCascadeRunning || singleRunPromptId === selectedPromptId}
               isWaitingForBackground={isWaitingForBackground}
+              backgroundReasoningText={backgroundReasoningText}
             />
           )}
           {activeTab === "settings" && (
