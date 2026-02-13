@@ -289,6 +289,7 @@ const MainLayout = () => {
     isFailed: webhookFailed,
     outputText: webhookOutputText,
     errorMessage: webhookErrorMessage,
+    reasoningText: webhookReasoningText,
     clearPendingResponse: clearWebhookPending,
   } = usePendingResponseSubscription(pendingWebhookResponseId);
   
@@ -1492,6 +1493,7 @@ const MainLayout = () => {
                         isCascadeRunning={isCascadeRunning}
                         singleRunPromptId={singleRunPromptId}
                         isWaitingForBackground={pendingWebhookResponseId !== null}
+                        backgroundReasoningText={webhookReasoningText}
                         // Settings props for Phase 6
                         settings={settings}
                         isLoadingSettings={isLoadingSettings}
