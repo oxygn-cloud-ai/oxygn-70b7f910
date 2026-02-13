@@ -113,7 +113,7 @@ export function usePendingResponseSubscription(
       return;
     }
 
-    const isPending = pendingResponse?.status === 'pending' || pendingResponse === null;
+    const isPending = pendingResponse?.status === 'pending';
     if (!isPending || timedOut) {
       // Stop polling when no longer pending
       if (pollIntervalRef.current !== undefined) {

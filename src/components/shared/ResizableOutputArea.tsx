@@ -84,12 +84,23 @@ const getStageDisplay = (progress) => {
   }
 };
 
+// Auto-expand helper (extracted to avoid hooks-in-conditional issues in @ts-nocheck file)
+const AutoExpandOnReasoning = ({ isWaitingForBackground, backgroundReasoningText, expandState, setExpandState, setManualHeight }) => {
+  useEffect(() => {
+    if (isWaitingForBackground && backgroundReasoningText && expandState === 'collapsed') {
+      setExpandState('min');
+      setManualHeight(null);
+    }
+  }, [isWaitingForBackground, backgroundReasoningText, expandState, setExpandState, setManualHeight]);
+  return null;
+};
+
 /**
  * ResizableOutputArea - Read-only output field with dual resize methods:
  * 1. Drag handle (bottom edge via CSS resize-y for vertical only)
  * 2. Chevron buttons to jump between collapsed/min/full states
  */
-const ResizableOutputArea = ({ 
+const ResizableOutputArea = ({
   label = "Output",
   value, 
   placeholder = "No output yet. Run the prompt to generate a response.",
@@ -403,6 +414,15 @@ const ResizableOutputArea = ({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Auto-expand when reasoning arrives */}
+      <AutoExpandOnReasoning
+        isWaitingForBackground={isWaitingForBackground}
+        backgroundReasoningText={backgroundReasoningText}
+        expandState={expandState}
+        setExpandState={setExpandState}
+        setManualHeight={setManualHeight}
+      />
 
       {/* Background reasoning content */}
       {isWaitingForBackground && !isRegenerating && backgroundReasoningText && !isCollapsed && (
