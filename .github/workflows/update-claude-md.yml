@@ -1,0 +1,56 @@
+name: Update CLAUDE.md
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  update-claude-md:
+    runs-on: ubuntu-latest
+    # Skip if this commit was an auto-update (prevent infinite loops)
+    if: "!contains(github.event.head_commit.message, 'Update CLAUDE.md')"
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2 # Need previous commit for diff
+
+      - name: Get commit info
+        id: commit
+        run: |
+          echo "message=$(git log -1 --pretty=%B | head -1)" >> $GITHUB_OUTPUT
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          git diff HEAD~1..HEAD --stat >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Update CLAUDE.md
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          claude -p "Review the latest commit and update CLAUDE.md if any documentation-worthy changes were made (new files, components, database tables, hooks, edge functions, patterns, config changes, etc.). Only update if meaningful structural changes are needed — do not update for minor bug fixes, formatting, or trivial changes.
+
+          Commit message: ${{ steps.commit.outputs.message }}
+
+          Changed files:
+          ${{ steps.commit.outputs.files }}" --permission-mode acceptEdits --max-turns 10
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CLAUDE.md
+          git diff --staged --quiet || git commit -m "Update CLAUDE.md"
+          git push
