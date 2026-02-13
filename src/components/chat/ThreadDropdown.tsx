@@ -1,6 +1,16 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Plus, Trash2, ChevronDown } from 'lucide-react';
 import type { ChatThread } from '@/types/chat';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface ThreadDropdownProps {
   threads: ChatThread[];
@@ -18,6 +28,7 @@ export const ThreadDropdown = ({
   onDeleteThread 
 }: ThreadDropdownProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -76,7 +87,7 @@ export const ThreadDropdown = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onDeleteThread?.(thread.row_id);
+                  setDeleteConfirmId(thread.row_id);
                 }}
                 className="opacity-0 group-hover:opacity-100 w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:text-destructive hover:bg-surface-container"
               >
@@ -86,6 +97,30 @@ export const ThreadDropdown = ({
           ))}
         </div>
       )}
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={(open) => { if (!open) setDeleteConfirmId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this conversation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove this chat thread and its history. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              if (deleteConfirmId) {
+                onDeleteThread?.(deleteConfirmId);
+                setDeleteConfirmId(null);
+                setIsOpen(false);
+              }
+            }}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

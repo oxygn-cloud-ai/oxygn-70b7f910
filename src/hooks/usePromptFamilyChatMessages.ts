@@ -26,7 +26,7 @@ export function usePromptFamilyChatMessages(): UsePromptFamilyChatMessagesReturn
     }
 
     const localMsg: ChatMessage = {
-      row_id: `local-${Date.now()}`,
+      row_id: `local-${crypto.randomUUID()}`,
       thread_row_id: threadId,
       role,
       content,

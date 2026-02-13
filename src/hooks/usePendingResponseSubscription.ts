@@ -60,19 +60,19 @@ export function usePendingResponseSubscription(
     
     fetchPending();
 
-    // Realtime subscription
+    // Realtime subscription - listen for both INSERT and UPDATE
     const channel = supabase
       .channel(`pending-response-${responseId}`)
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
           table: 'q_pending_responses',
           filter: `response_id=eq.${responseId}`
         },
         (payload) => {
-          console.log('[usePendingResponseSubscription] Update:', payload.eventType);
+          console.log('[usePendingResponseSubscription] Event:', payload.eventType);
           if (payload.new) {
             setPendingResponse(payload.new as PendingResponse);
           }

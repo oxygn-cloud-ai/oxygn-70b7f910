@@ -1,4 +1,4 @@
-import { memo, lazy, Suspense } from 'react';
+import { memo, lazy, Suspense, useCallback } from 'react';
 import type { ChatMessage } from '@/types/chat';
 
 const ReactMarkdown = lazy(() => import('react-markdown'));
@@ -7,6 +7,19 @@ interface MessageItemProps {
   msg: ChatMessage;
   isStreaming?: boolean;
 }
+
+// Sanitize URLs to prevent javascript: XSS attacks
+const sanitizeUrl = (url: string): string | undefined => {
+  try {
+    const parsed = new URL(url, 'https://placeholder.invalid');
+    if (parsed.protocol === 'javascript:' || parsed.protocol === 'vbscript:' || parsed.protocol === 'data:') {
+      return undefined;
+    }
+    return url;
+  } catch {
+    return url; // Relative URLs are safe
+  }
+};
 
 export const MessageItem = memo<MessageItemProps>(({ msg, isStreaming }) => (
   <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -21,7 +34,7 @@ export const MessageItem = memo<MessageItemProps>(({ msg, isStreaming }) => (
       {msg.role === 'assistant' ? (
         <Suspense fallback={<div className="animate-pulse h-4 bg-surface-container rounded w-3/4" />}>
           <div className="prose prose-sm max-w-none text-on-surface prose-p:my-1 prose-headings:my-2">
-            <ReactMarkdown>{msg.content}</ReactMarkdown>
+            <ReactMarkdown urlTransform={sanitizeUrl}>{msg.content}</ReactMarkdown>
             {isStreaming && <span className="inline-block w-1.5 h-4 bg-primary animate-pulse ml-0.5" />}
           </div>
         </Suspense>

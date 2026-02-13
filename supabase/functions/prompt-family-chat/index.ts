@@ -450,14 +450,13 @@ async function handleToolCall(
             ? Object.keys(sample[0]).map(col => ({
                 column_name: col,
                 data_type: typeof sample[0][col],
-                sample_value: sample[0][col]?.toString()?.substring(0, 50)
               }))
             : [];
           
           return JSON.stringify({
             table: table_name,
             columns: inferredColumns,
-            note: 'Schema inferred from sample data'
+            note: 'Column names and types inferred from schema'
           });
         }
         
@@ -956,12 +955,13 @@ async function executeToolsAndSubmitStreaming(
     });
   }
 
-  // Submit with background mode for streaming
+  // Submit with background mode only for GPT-5 models
+  const useBackground = selectedModel?.includes('gpt-5') ?? false;
   const requestBody: any = {
     model: selectedModel,
     input: toolResults,
     store: true,
-    background: true,
+    ...(useBackground && { background: true }),
   };
   
   // CRITICAL: Include max_output_tokens in tool submission to prevent uncapped output
@@ -1315,14 +1315,15 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
         registryContext
       };
 
-      // Build initial request with background mode
+      // Build initial request - only use background mode for long-running models (GPT-5)
+      const useBackground = isLongRunningOperation(selectedModel, reasoning_effort, tools.length);
       const requestBody: any = {
         model: selectedModel,
         input: user_message,
         instructions: systemContent,
         tools: tools.length > 0 ? tools : undefined,
         store: true,
-        background: true,
+        ...(useBackground && { background: true }),
       };
 
       // Responses API: Add max_output_tokens if model has it configured

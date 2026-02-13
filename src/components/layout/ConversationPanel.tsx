@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useState, useEffect, useRef, useCallback } from "react";
 import { 
-  Send, Paperclip, Mic, PanelRightClose, Loader2, 
+  Send, PanelRightClose, Loader2, 
   Plus, Maximize2, Brain, Square
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -443,22 +443,6 @@ const ConversationPanel = ({
             <div />
           )}
           <div className="flex gap-0.5">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-                  <Paperclip className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent className="text-[10px]">Attach</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-                  <Mic className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent className="text-[10px]">Voice</TooltipContent>
-            </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button 
