@@ -11,8 +11,8 @@ permissions:
 jobs:
   update-claude-md:
     runs-on: ubuntu-latest
-    # Skip if this commit was an auto-update (prevent infinite loops)
-    if: "!contains(github.event.head_commit.message, 'Update CLAUDE.md')"
+    # Skip if this commit was made by the bot (prevent infinite loops)
+    if: github.event.head_commit.author.email != 'github-actions[bot]@users.noreply.github.com'
 
     steps:
       - name: Checkout Code
