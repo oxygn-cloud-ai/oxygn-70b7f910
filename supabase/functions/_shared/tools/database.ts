@@ -81,7 +81,7 @@ export const databaseModule: ToolModule = {
     try {
       // table_name can be null (list all tables) or a string (get specific table schema)
       if (table_name && typeof table_name === 'string') {
-        // Get schema for specific table by sampling data
+        // Get column names only (no sample data) to avoid data exposure
         const { data: sample, error: sampleError } = await supabase
           .from(table_name)
           .select('*')
@@ -95,14 +95,13 @@ export const databaseModule: ToolModule = {
           ? Object.keys(sample[0]).map(col => ({
               column_name: col,
               data_type: typeof sample[0][col],
-              sample_value: sample[0][col]?.toString()?.substring(0, 50)
             }))
           : [];
         
         return JSON.stringify({
           table: table_name,
           columns: inferredColumns,
-          note: 'Schema inferred from sample data'
+          note: 'Column names and types inferred from schema'
         });
       }
       
