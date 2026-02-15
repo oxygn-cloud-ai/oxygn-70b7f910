@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { lovable } from '@/integrations/lovable/index';
 import { toast } from '@/components/ui/sonner';
 import { identifyUser, resetUser, trackEvent } from '@/lib/posthog';
 import type { User, Session } from '@supabase/supabase-js';
@@ -198,21 +199,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     .filter(Boolean);
 
   const signInWithGoogle = async (): Promise<{ error: Error | null }> => {
-    const redirectUrl = `${window.location.origin}/projects`;
-    
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: redirectUrl,
-        queryParams: {
-          prompt: 'select_account'
-        }
-      }
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin,
+      extraParams: { prompt: 'select_account' }
     });
     
-    if (error) {
-      toast.error(error.message);
-      return { error };
+    if (result.error) {
+      toast.error(result.error.message);
+      return { error: result.error };
     }
     
     return { error: null };
