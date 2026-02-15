@@ -199,17 +199,23 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     .filter(Boolean);
 
   const signInWithGoogle = async (): Promise<{ error: Error | null }> => {
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-      extraParams: { prompt: 'select_account' }
-    });
-    
-    if (result.error) {
-      toast.error(result.error.message);
-      return { error: result.error };
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
+        extraParams: { prompt: 'select_account' }
+      });
+      
+      if (result.error) {
+        toast.error(result.error.message);
+        return { error: result.error };
+      }
+      
+      return { error: null };
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      toast.error(error.message);
+      return { error };
     }
-    
-    return { error: null };
   };
 
   const signInWithPassword = async (email: string, password: string): Promise<{ error: Error | null }> => {
