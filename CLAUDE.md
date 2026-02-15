@@ -23,6 +23,7 @@ npm run preview      # Preview production build
 ### Tech Stack
 - **Frontend**: React 18 + TypeScript, Vite, TanStack React Query, Tailwind CSS, shadcn/ui (Radix primitives)
 - **Backend**: Supabase (PostgreSQL, Auth, Realtime, Edge Functions)
+- **Authentication**: Lovable Cloud OAuth (`@lovable.dev/cloud-auth-js`) wrapping Supabase Auth
 - **State Management**: React Context API (no Redux/Zustand)
 - **Routing**: React Router DOM 6
 - **Rich Text**: TipTap editor (`@tiptap/*`)
@@ -49,7 +50,7 @@ src/
 ├── config/         # 6 config files (see below)
 ├── contexts/       # 9 context providers (Auth, ApiCall, CascadeRun, Undo, etc.)
 ├── hooks/          # 54 custom hooks for business logic
-├── integrations/   # Supabase client, generated types, OpenAPI schema
+├── integrations/   # Supabase client, Lovable OAuth shim, generated types, OpenAPI schema
 ├── lib/            # PostHog analytics (posthog.ts), cn() utility (utils.ts)
 ├── pages/          # Route pages: Auth.tsx, MainLayout.tsx
 ├── services/       # API calls, mutations, 6 action executors
@@ -403,8 +404,20 @@ The `_shared/anthropic.ts` module handles OpenAI-to-Anthropic format conversion:
 - Stateless — full message history required with each request
 - Stream events have different structure — use `parseAnthropicStreamEvent()` adapter
 
+### Authentication Flow
+
+Google OAuth sign-in uses Lovable Cloud as an intermediary layer (`src/integrations/lovable/index.ts`):
+1. Frontend calls `lovable.auth.signInWithOAuth("google", options)`
+2. Lovable Cloud OAuth flow handles provider authentication
+3. Tokens returned to client
+4. Client calls `supabase.auth.setSession(tokens)` to establish Supabase session
+5. AuthContext manages session state and user profile
+
+This pattern allows centralized OAuth management through Lovable while maintaining Supabase as the auth backend. The `lovable/index.ts` shim is auto-generated and should not be manually modified.
+
 ### Integrations
 
+- **Lovable Cloud**: OAuth provider wrapper for Google/Apple sign-in (`@lovable.dev/cloud-auth-js` package, `src/integrations/lovable/index.ts` shim)
 - **Confluence**: Export, page sync, search (`confluence-manager` edge function, `useConfluenceExport`/`useConfluencePages` hooks, `ConfluenceSearchModal`/`ConfluencePagesSection` components)
 - **Figma**: File attachments, sync, metadata (`figma-manager` edge function, `useFigmaFiles` hook, `FigmaIntegrationSettings`/`FigmaSearchModal`/`FigmaFilesSection` components)
 - **Jira**: Ticket creation action (`createJiraTicket` action executor, `q_jira_projects`/`q_jira_issues` tables)
