@@ -1,47 +1,38 @@
 
 
-# Fix Google Sign-In (Lovable Cloud Migration)
+# Fix: Add Error Handling to `signInWithGoogle`
 
-## Root Cause
+## Problem
 
-Google sign-in stopped working because the project now runs on Lovable Cloud, which manages OAuth differently. The current code at line 203 of `AuthContext.tsx` calls `supabase.auth.signInWithOAuth()` directly -- this no longer works on Lovable Cloud.
+The `signInWithGoogle` function in `AuthContext.tsx` lacks a `try/catch` block. If `lovable.auth.signInWithOAuth` throws (network failure, library error), the promise rejects unhandled instead of showing a user-facing toast.
 
-The required integration module (`src/integrations/lovable/`) does not exist.
+## Change
 
-## Fix
+**File:** `src/contexts/AuthContext.tsx` (lines 168-178)
 
-### Step 1: Configure Social Login (automated)
+Wrap the existing `lovable.auth.signInWithOAuth` call in a `try/catch` that catches thrown errors, shows a toast, and returns `{ error }` consistently.
 
-Use the Lovable Cloud social login configuration tool to generate the `src/integrations/lovable/` module and install the `@lovable.dev/cloud-auth-js` package. These files are auto-managed and will not be manually edited.
+```typescript
+const signInWithGoogle = async (): Promise<{ error: Error | null }> => {
+  try {
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin,
+      extraParams: { prompt: 'select_account' }
+    });
 
-### Step 2: Update `signInWithGoogle` in `AuthContext.tsx`
+    if (result.error) {
+      toast.error(result.error.message);
+      return { error: result.error };
+    }
 
-Replace the direct Supabase OAuth call (lines 200-219) with the Lovable Cloud managed function:
-
-```text
-Before:
-  supabase.auth.signInWithOAuth({ provider: 'google', ... })
-
-After:
-  lovable.auth.signInWithOAuth("google", {
-    redirect_uri: window.location.origin,
-    extraParams: { prompt: 'select_account' }
-  })
+    return { error: null };
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    toast.error(error.message);
+    return { error };
+  }
+};
 ```
 
-No other functions are changed -- password login and sign-up continue using `supabase.auth` as before.
-
-### Files Changed
-
-| File | Change |
-|------|--------|
-| `src/integrations/lovable/` | Auto-generated (do not edit) |
-| `src/contexts/AuthContext.tsx` | Update `signInWithGoogle` function only |
-
-### What stays the same
-
-- Password sign-in and sign-up (unchanged, uses `supabase.auth`)
-- Sign-out logic (unchanged)
-- Admin checks, profile fetching, tenant logic (unchanged)
-- Auth state listener and session handling (unchanged)
+No other files are changed.
 
