@@ -198,6 +198,18 @@ Note: `q.parent.prompt.name` uses the IMMEDIATE parent, not the top-level root.
 
 **Question node resume**: If result has `interruptType === 'question'`, loops: show question dialog → call `runConversation()` with `resumeResponseId` + answer → repeat if still interrupted.
 
+**Webhook post-action pipeline** (`MainLayout.tsx`): When GPT-5 models complete via webhook (`usePendingResponseSubscription`), action nodes automatically execute their post-actions:
+1. Fetch completed prompt data from database
+2. Extract JSON from webhook output via `extractJsonFromResponse()`
+3. Store `extracted_variables` in `q_prompts` table
+4. Validate response against `post_action_config` schema
+5. Execute post-action via `executePostAction()` (shows preview dialog unless `skip_preview`)
+6. Process variable assignments if configured via `processVariableAssignments()`
+7. Auto-run created children if `auto_run_children` enabled (recursive cascade)
+8. Update `last_action_result` with status, message, and metadata
+9. Refresh tree data and expand parent folders
+This ensures action nodes work identically whether executed synchronously (streaming) or asynchronously (webhook delivery).
+
 ### Realtime Configuration
 
 Only **two tables** are published for Supabase Realtime (both with `REPLICA IDENTITY FULL`):
