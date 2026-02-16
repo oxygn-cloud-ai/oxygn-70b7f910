@@ -1,170 +1,108 @@
 
 
-# Revised Plan: Persist Chat Conversations Across Prompt Switches
+# Fix: Webhook Signature Mismatch Causing Background Request Timeouts
 
-## Problem
+## Diagnosis
 
-When switching between prompts in different families, messages disappear because `usePromptFamilyChat` has no in-memory cache. Every `rootPromptId` change triggers a full reset-and-reload cycle.
-
-## Audit Findings Addressed
-
-| # | Finding | Resolution |
-|---|---------|------------|
-| 1 | Cache `threadId` typed as `string` but value is `string \| null` | Use `string \| null` in cache type |
-| 2 | No cache invalidation on `deleteThread`/`clearMessages`/`createThread` | Invalidate cache entry for current family on any mutation |
-| 3 | Background refresh listed as "optional" | Make it mandatory: silently refresh from server after cache restore |
-| 4 | `@ts-nocheck` on both files | Preserve existing `@ts-nocheck`; do not remove (out of scope). New code is written type-safe regardless |
-| 5 | Effect ordering / snapshot timing | Document assumption: ref-sync effect (line 78) runs before consolidated effect due to declaration order |
-| 6 | Raw `setThreads` exposure | Expose as `restoreThreads` (same setter, renamed in return interface) |
-| 7 | Unbounded cache growth | Cap cache at 20 entries (LRU eviction) |
-| 8 | Loading state flash on background refresh | Use a silent refresh path that does NOT set `isLoading` |
-
-## Solution
-
-### File 1: `src/hooks/usePromptFamilyChat.ts`
-
-**Change 1 — Add cache type and ref (after line 11)**
-
-```typescript
-interface FamilyCacheEntry {
-  threadId: string | null;
-  messages: ChatMessage[];
-  threads: ChatThread[];
+### Root Cause
+The `openai-webhook` edge function is **consistently rejecting all incoming webhooks** due to HMAC signature mismatch. Every single webhook call logs:
+```
+[DIAG] Signature mismatch: {
+  computedPrefix: "v1,tCN9/Gl4P8...",
+  receivedPrefixes: ["v1,YEY9hLe//S6..."],
+  secretLength: 50, hasWhsecPrefix: true
 }
 ```
 
-**Change 2 — Add cache ref, previous root ref, and eviction helper (after line 53)**
+The `OPENAI_WEBHOOK_SECRET` stored in Lovable Cloud does not match the signing key OpenAI is using. This means GPT-5 background responses are never delivered via webhook.
 
-```typescript
-const familyCacheRef = useRef<Map<string, FamilyCacheEntry>>(new Map());
-const previousRootRef = useRef<string | null>(null);
-const MAX_CACHE_ENTRIES = 20;
+### Why the Polling Fallback Also Fails
+The system has a polling fallback (`poll-openai-response` called every 30s from the browser), but:
+- It only runs while the user keeps the page open and focused
+- If the user navigates away or switches prompts, polling stops
+- The 10-minute client-side timeout (`TIMEOUT_MS`) fires before GPT-5 completes
+- **Two pending responses are currently stuck** in the database with status `pending` and no `webhook_event_id`
+
+### Evidence
+Database query shows two orphaned rows:
+- `resp_...971c` (gpt-5-nano) created 08:14:48 -- still `pending`
+- `resp_...abad` (gpt-5) created 08:13:00 -- still `pending`
+
+Both have `webhook_event_id: null`, confirming no webhook was ever accepted.
+
+## Fix Plan
+
+### Step 1: Re-configure the Webhook Secret (Configuration Fix)
+The `OPENAI_WEBHOOK_SECRET` must be re-synced with OpenAI. This requires the user to:
+1. Go to the OpenAI dashboard, navigate to Webhooks
+2. Delete the existing webhook endpoint and create a new one pointing to the same URL
+3. Copy the new signing secret (starts with `whsec_`)
+4. Update the `OPENAI_WEBHOOK_SECRET` in Lovable Cloud
+
+This is a manual step that must be done by the user.
+
+### Step 2: Clean Up Stuck Pending Responses (Database Fix)
+Mark the two orphaned pending responses as `failed` so they stop triggering UI errors:
+```sql
+UPDATE q_pending_responses
+SET status = 'failed',
+    error = 'Webhook delivery failed - signature mismatch',
+    completed_at = now()
+WHERE status = 'pending'
+  AND created_at < now() - interval '30 minutes';
 ```
 
-**Change 3 — Add cache invalidation helper (after refs)**
+### Step 3: Improve Polling Resilience (Code Fix)
+**File: `src/hooks/usePendingResponseSubscription.ts`**
 
-```typescript
-const invalidateCurrentCache = useCallback(() => {
-  const current = previousRootRef.current;
-  if (current) {
-    familyCacheRef.current.delete(current);
-  }
-}, []);
-```
-
-**Change 4 — Call invalidation on mutations**
-
-In `createThread` wrapper (line 189), `clearMessages` (line 198), and the webhook completion handler (line 140), call `invalidateCurrentCache()` to prevent stale cache from being restored later.
-
-In `sendMessage` (line 227), update cache for current family after message is added (both user message add and assistant message completion).
-
-**Change 5 — Rewrite consolidated effect (lines 282-321)**
+Reduce polling interval from 30s to 10s and initial delay from 5s to 2s. This gives the polling fallback a better chance of catching completed responses before the user navigates away:
 
 ```text
-Replace the existing effect body with:
-
-1. Save outgoing family to cache:
-   - Read previousRootRef.current
-   - If it exists and tm.activeThreadId is set:
-     - Save { threadId, messages, threads } to familyCacheRef
-     - Evict oldest entry if cache exceeds MAX_CACHE_ENTRIES
-   - Update previousRootRef.current = rootPromptId
-
-2. Reset UI state (same as current)
-
-3. If rootPromptId is null, return early
-
-4. Check cache for incoming family:
-   - If cached entry exists:
-     - Restore threadId, messages, threads immediately
-     - Schedule background refresh (non-loading):
-       a. Fetch threads from server
-       b. If active thread still exists, fetch its messages
-       c. Silently update state if data differs
-     - Return (skip full server fetch)
-
-5. If no cache: full server fetch (existing logic, unchanged)
+POLL_INTERVAL_MS: 30_000 -> 10_000
+Initial delay: 5_000 -> 2_000
 ```
 
-**Change 6 — Background refresh helper**
+### Step 4: Add Webhook Verification Bypass for Development (Code Fix)
+**File: `supabase/functions/openai-webhook/index.ts`**
 
-Add a private function `backgroundRefresh` that:
-- Calls `tm.fetchThreads()` WITHOUT setting `isLoading`
-- Calls `tm.switchThread()` for the active thread
-- Only updates `mm.setMessages()` if the fetched messages differ from cached
-- Swallows all errors silently (cache is already displayed)
+After signature verification fails, attempt a secondary verification using the raw secret (not base64-decoded) as a fallback. Some webhook secret formats from OpenAI use the raw string directly rather than base64. If both fail, continue to reject with 401.
 
-To avoid the loading flash (finding #8), the background refresh calls `fetchThreads` directly and maps response manually rather than going through `switchThread` (which sets `isLoading = true`). Alternatively, a new `fetchMessagesQuietly` method on threadManager can be used.
-
-### File 2: `src/hooks/usePromptFamilyThreads.ts`
-
-**Change 1 — Expose `setThreads` as `restoreThreads` in the return interface**
-
-Add to `UsePromptFamilyThreadsReturn`:
-```typescript
-restoreThreads: React.Dispatch<React.SetStateAction<ChatThread[]>>;
-```
-
-Add to return object:
-```typescript
-restoreThreads: setThreads,
-```
-
-**Change 2 — Add `fetchMessagesQuietly` method**
-
-A variant of `switchThread` that fetches messages for a given thread WITHOUT setting `isLoading` or updating `activeThreadId`. Returns `ChatMessage[]`. This is used exclusively by the background refresh to avoid UI flicker.
+This addresses the possibility that the secret format changed on OpenAI's side:
 
 ```typescript
-const fetchMessagesQuietly = useCallback(async (threadId: string): Promise<ChatMessage[]> => {
-  if (!threadId) return [];
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return [];
-    const response = await supabase.functions.invoke('thread-manager', {
-      body: { action: 'get_messages', thread_row_id: threadId, limit: 100 }
-    });
-    if (response.error) return [];
-    if (response.data?.status === 'openai_not_configured') return [];
-    return (response.data?.messages || []).map((m: { id: string; role: 'user' | 'assistant'; content: string; created_at?: string }) => ({
-      row_id: m.id,
-      role: m.role,
-      content: m.content,
-      created_at: m.created_at,
-    }));
-  } catch {
-    return [];
-  }
-}, []);
-```
+// Primary: Standard Webhooks spec (base64-decode after stripping whsec_)
+const secretBase64 = secret.replace('whsec_', '');
+const secretBytes = Uint8Array.from(atob(secretBase64), c => c.charCodeAt(0));
+// ... HMAC verification ...
 
-Add to return interface and return object.
+// If primary fails, try raw bytes (some implementations use raw secret)
+if (!matched) {
+  const rawKey = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret.replace('whsec_', '')),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  // ... compute and compare again ...
+}
+```
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/hooks/usePromptFamilyChat.ts` | Add cache ref, save/restore in consolidated effect, cache invalidation on mutations, background refresh |
-| `src/hooks/usePromptFamilyThreads.ts` | Expose `restoreThreads`, add `fetchMessagesQuietly` |
+| `src/hooks/usePendingResponseSubscription.ts` | Reduce poll interval to 10s, initial delay to 2s |
+| `supabase/functions/openai-webhook/index.ts` | Add secondary raw-secret HMAC verification fallback |
+| Database | Clean up orphaned pending responses |
 
-## What stays the same
+## What Stays the Same
+- All other edge functions unchanged
+- Webhook verification still required (not bypassed)
+- 10-minute client timeout unchanged
+- Realtime subscription logic unchanged
+- No schema changes
 
-- OpenAI Conversations API remains the source of truth
-- Thread creation, deletion, and message sending logic unchanged (only cache invalidation calls added)
-- Edge functions unchanged
-- Database schema unchanged
-- No other files touched
-- `@ts-nocheck` preserved (not in scope to remove)
-
-## Edge cases handled
-
-| Case | Handling |
-|------|----------|
-| First visit to a family (no cache) | Full server fetch, identical to current behavior |
-| Cache at capacity (>20) | Oldest entry evicted before insert |
-| Stale cache (webhook message arrived while away) | Background refresh silently updates after restore |
-| Deleted thread in cache | Background refresh detects missing thread, falls back to first available |
-| User deletes thread then switches away/back | `invalidateCurrentCache` clears entry on delete, forcing full fetch on return |
-| User sends message then switches away/back | Cache updated on family switch (snapshot captures latest messages) |
-| `rootPromptId` is null | Cache saved for outgoing family, no restore attempted |
-| Rapid switching (race condition) | Existing `cancelled` flag in effect prevents stale updates; background refresh checks `rootPromptId` hasn't changed before applying |
+## User Action Required
+The user must re-configure the `OPENAI_WEBHOOK_SECRET` by creating a new webhook endpoint in the OpenAI dashboard and updating the secret. Without this, the signature mismatch will persist regardless of code changes.
 
