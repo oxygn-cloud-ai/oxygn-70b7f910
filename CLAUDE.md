@@ -139,6 +139,14 @@ Non-provider components also nested within: `PostHogPageView`, `NavigationGuard`
 - `createJiraTicket` - Create Jira issues
 - `processVariableAssignments` - Assign output to variables
 
+**Prompt Family Chat** (`usePromptFamilyChat`, `usePromptFamilyThreads`): Per-family chat persistence with client-side caching:
+- In-memory cache (max 20 families) stores threads + messages for instant restoration when switching prompts
+- Cache-first display with silent background sync prevents loading flickers
+- Cache invalidated on mutations (create/delete thread, clear messages)
+- Thread management via `usePromptFamilyThreads`: `fetchThreads()`, `createThread()`, `switchThread()`, `deleteThread()`, `fetchMessagesQuietly()` (background refresh), `restoreThreads()` (cache restore)
+- Race condition prevention: `switchRequestIdRef` invalidates stale async operations, `activeThreadIdRef` provides synchronous reads
+- Auto-selects most recent thread on family load if no thread is active
+
 ### Cascade Execution State Machine
 
 The cascade executor (`useCascadeExecutor.ts` + `CascadeRunContext.tsx`) is the most complex subsystem:
