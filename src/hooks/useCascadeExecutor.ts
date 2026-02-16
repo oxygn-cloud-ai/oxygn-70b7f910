@@ -1658,71 +1658,139 @@ export const useCascadeExecutor = () => {
     */
 
   /**
-   * Poll q_pending_responses for a background (GPT-5) response until terminal.
+   * Wait for a background (GPT-5) response via Realtime subscription + polling fallback.
+   * Mirrors the proven pattern from runManusTask (line 177).
+   *
+   * @param {string} responseId - The response_id in q_pending_responses
+   * @param {number} [timeoutMs=600000] - Maximum wait time (default 10 minutes)
+   * @param {number} [pollIntervalMs=10000] - Polling interval (default 10 seconds)
+   * @returns {Promise<{ response: string | null; success: boolean; response_id?: string }>}
    */
   const waitForBackgroundResponse = async (
     responseId,
     timeoutMs = 600_000,
     pollIntervalMs = 10_000
   ) => {
-    const startTime = Date.now();
+    return new Promise((resolve) => {
+      let resolved = false;
+      let subscription = null;
+      let pollTimer = null;
+      let cancelCheckTimer = null;
+      let timeoutTimer = null;
 
-    while (Date.now() - startTime < timeoutMs) {
-      if (isCancelled()) {
-        return { response: null, success: false };
-      }
-
-      // Wait for poll interval, checking cancel every second
-      for (let waited = 0; waited < pollIntervalMs; waited += 1000) {
-        if (isCancelled()) return { response: null, success: false };
-        await new Promise(r => setTimeout(r, Math.min(1000, pollIntervalMs - waited)));
-      }
-
-      // Poll the pending_responses table
-      const { data } = await supabaseClient
-        .from('q_pending_responses')
-        .select('status, output_text, error, usage')
-        .eq('response_id', responseId)
-        .maybeSingle();
-
-      if (!data) continue;
-
-      if (data.status === 'completed' && data.output_text) {
-        return {
-          response: data.output_text,
-          success: true,
-          usage: data.usage,
-          response_id: responseId,
-        };
-      }
-
-      if (['failed', 'cancelled', 'incomplete'].includes(data.status)) {
-        console.error(`Background response ${responseId} ended with status: ${data.status}`, data.error);
-        return { response: null, success: false };
-      }
-
-      // Also try the poll edge function as fallback
-      try {
-        const { data: pollData, error: pollError } = await supabaseClient
-          .functions.invoke('poll-openai-response', {
-            body: { response_id: responseId },
-          });
-
-        if (!pollError && pollData?.status === 'completed' && pollData?.output_text) {
-          return {
-            response: pollData.output_text,
-            success: true,
-            usage: pollData.usage,
-            response_id: responseId,
-          };
+      const cleanup = () => {
+        if (subscription) {
+          supabaseClient.removeChannel(subscription);
+          subscription = null;
         }
-      } catch (e) {
-        console.warn('Poll edge function error:', e);
-      }
-    }
+        if (pollTimer) {
+          clearInterval(pollTimer);
+          pollTimer = null;
+        }
+        if (cancelCheckTimer) {
+          clearInterval(cancelCheckTimer);
+          cancelCheckTimer = null;
+        }
+        if (timeoutTimer) {
+          clearTimeout(timeoutTimer);
+          timeoutTimer = null;
+        }
+      };
 
-    console.error(`Background response ${responseId} timed out after ${timeoutMs}ms`);
-    return { response: null, success: false };
+      const finish = (result) => {
+        if (resolved) return;
+        resolved = true;
+        cleanup();
+        resolve(result);
+      };
+
+      // 1. Realtime subscription on q_pending_responses (same pattern as runManusTask)
+      subscription = supabaseClient
+        .channel(`bg-wait-${responseId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'q_pending_responses',
+            filter: `response_id=eq.${responseId}`,
+          },
+          (payload) => {
+            const row = payload.new;
+            console.log(`[waitForBg] Realtime event for ${responseId}: status=${row?.status}`);
+            if (row?.status === 'completed' && row?.output_text) {
+              finish({ response: row.output_text, success: true, response_id: responseId });
+            } else if (row && ['failed', 'cancelled', 'incomplete'].includes(row.status)) {
+              console.error(`[waitForBg] Realtime: terminal status ${row.status} for ${responseId}`, row.error);
+              finish({ response: null, success: false });
+            }
+          }
+        )
+        .subscribe((status) => {
+          console.log(`[waitForBg] Channel status for ${responseId}: ${status}`);
+        });
+
+      // 2. Polling fallback (every pollIntervalMs)
+      const doPoll = async () => {
+        if (resolved) return;
+        try {
+          // DB check first
+          const { data, error: dbError } = await supabaseClient
+            .from('q_pending_responses')
+            .select('status, output_text, error')
+            .eq('response_id', responseId)
+            .maybeSingle();
+
+          if (dbError) {
+            console.warn(`[waitForBg] DB poll error for ${responseId}:`, dbError.message);
+          } else if (data?.status === 'completed' && data?.output_text) {
+            console.log(`[waitForBg] DB poll: completed for ${responseId}`);
+            finish({ response: data.output_text, success: true, response_id: responseId });
+            return;
+          } else if (data && ['failed', 'cancelled', 'incomplete'].includes(data.status)) {
+            console.log(`[waitForBg] DB poll: terminal ${data.status} for ${responseId}`);
+            finish({ response: null, success: false });
+            return;
+          }
+
+          // Edge function poll as fallback
+          const { data: pollData, error: pollError } = await supabaseClient
+            .functions.invoke('poll-openai-response', {
+              body: { response_id: responseId },
+            });
+
+          if (pollError) {
+            console.warn(`[waitForBg] Edge poll error for ${responseId}:`, pollError.message);
+          } else if (pollData?.status === 'completed' && pollData?.output_text) {
+            console.log(`[waitForBg] Edge poll: completed for ${responseId}`);
+            finish({ response: pollData.output_text, success: true, response_id: responseId });
+          }
+        } catch (e) {
+          console.warn(`[waitForBg] Poll exception for ${responseId}:`, e);
+        }
+      };
+
+      pollTimer = setInterval(doPoll, pollIntervalMs);
+
+      // 3. Cancellation check (every second)
+      cancelCheckTimer = setInterval(() => {
+        if (resolved) return;
+        if (isCancelled()) {
+          console.log(`[waitForBg] Cancelled for ${responseId}`);
+          finish({ response: null, success: false });
+        }
+      }, 1000);
+
+      // 4. Timeout
+      timeoutTimer = setTimeout(() => {
+        if (resolved) return;
+        console.error(`[waitForBg] Timed out after ${timeoutMs}ms for ${responseId}`);
+        finish({ response: null, success: false });
+      }, timeoutMs);
+
+      // 5. Immediate initial check (don't wait for first poll interval)
+      doPoll();
+    });
   };
 
    const executeChildCascade = useCallback(async (
@@ -1915,7 +1983,6 @@ export const useCascadeExecutor = () => {
             // Overwrite result with the actual background response
             result = {
               response: bgResult.response,
-              usage: bgResult.usage,
               response_id: bgResult.response_id,
             };
           }
@@ -1993,25 +2060,44 @@ export const useCascadeExecutor = () => {
                 });
 
                 // Recursive auto-cascade if children were created
-                if (actionResult.success && actionResult.children?.length > 0) {
-                  console.log(`executeChildCascade: Recursing for ${actionResult.children.length} grandchildren at depth ${currentDepth + 1}`);
+                if (actionResult.success && (actionResult.children?.length > 0 || actionResult.createdCount > 0)) {
+                  let grandchildren = actionResult.children;
                   
-                  const recursiveResult = await executeChildCascade(
-                    actionResult.children,
-                    childPrompt,
-                    {
-                      maxDepth,
-                      currentDepth: currentDepth + 1,
-                      inheritedVariables: templateVariables,
-                      traceId, // Pass trace ID for unified tracing
-                    }
-                  );
+                  // DB fallback if children array is empty despite createdCount > 0
+                  if ((!grandchildren || grandchildren.length === 0) && actionResult.createdCount > 0) {
+                    console.warn(`executeChildCascade: grandchildren array empty despite createdCount=${actionResult.createdCount}, fetching from DB`);
+                    const gcParentId = actionResult.placement === 'children'
+                      ? childPrompt.row_id
+                      : (actionResult.targetParentRowId || childPrompt.row_id);
+                    const { data: dbGrandchildren } = await supabaseClient
+                      .from(import.meta.env.VITE_PROMPTS_TBL)
+                      .select('row_id, prompt_name')
+                      .eq('parent_row_id', gcParentId)
+                      .eq('is_deleted', false)
+                      .order('position_lex', { ascending: true });
+                    grandchildren = dbGrandchildren || [];
+                  }
+                  
+                  if (grandchildren.length > 0) {
+                    console.log(`executeChildCascade: Recursing for ${grandchildren.length} grandchildren at depth ${currentDepth + 1}`);
+                  
+                    const recursiveResult = await executeChildCascade(
+                      grandchildren,
+                      childPrompt,
+                      {
+                        maxDepth,
+                        currentDepth: currentDepth + 1,
+                        inheritedVariables: templateVariables,
+                        traceId,
+                      }
+                    );
 
                   // Add recursive results
                   results.push(...recursiveResult.results);
                   
-                  if (recursiveResult.depthLimitReached) {
-                    return { success: true, results, depthLimitReached: true };
+                    if (recursiveResult.depthLimitReached) {
+                      return { success: true, results, depthLimitReached: true };
+                    }
                   }
                 }
               }
@@ -2022,10 +2108,12 @@ export const useCascadeExecutor = () => {
           }
         }
 
-        toast.success(`Auto-run: ${childPrompt.prompt_name}`, {
-          description: `Depth ${currentDepth + 1}`,
-          source: 'executeChildCascade',
-        });
+        if (promptResult.success) {
+          toast.success(`Auto-run: ${childPrompt.prompt_name}`, {
+            description: `Depth ${currentDepth + 1}`,
+            source: 'executeChildCascade',
+          });
+        }
 
       } catch (error) {
         console.error('executeChildCascade: Error running child prompt:', childPrompt.row_id, error);
