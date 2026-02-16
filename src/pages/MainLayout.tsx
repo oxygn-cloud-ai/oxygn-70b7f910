@@ -471,24 +471,48 @@ const MainLayout = () => {
             }
             
             // Auto-run created children if enabled
-            if (promptData.auto_run_children && actionResult.children?.length > 0) {
-              toast.info(`Auto-running ${actionResult.children.length} created child prompt(s)...`);
-              try {
-                const cascadeResult = await executeChildCascade(
-                  actionResult.children,
-                  promptData,
-                  { maxDepth: 99 }
-                );
-                if (cascadeResult.depthLimitReached) {
-                  toast.warning('Auto-cascade depth limit reached (99 levels)');
-                } else {
-                  const successCount = cascadeResult.results.filter(r => r.success).length;
-                  toast.success(`Auto-cascade complete: ${successCount}/${cascadeResult.results.length} succeeded`);
+            console.log('Post-action auto-run check (webhook):', {
+              auto_run_children: promptData.auto_run_children,
+              createdCount: actionResult.createdCount,
+              childrenLength: actionResult.children?.length,
+              success: actionResult.success,
+            });
+            if (promptData.auto_run_children && actionResult.createdCount > 0) {
+              let childrenToRun = actionResult.children;
+              
+              if (!childrenToRun || childrenToRun.length === 0) {
+                console.warn('auto_run_children: actionResult.children empty despite createdCount > 0, fetching from DB');
+                const parentId = actionResult.placement === 'children' 
+                  ? completedPromptId 
+                  : (actionResult.targetParentRowId || completedPromptId);
+                const { data: dbChildren } = await supabase
+                  .from(import.meta.env.VITE_PROMPTS_TBL)
+                  .select('row_id, prompt_name')
+                  .eq('parent_row_id', parentId)
+                  .eq('is_deleted', false)
+                  .order('position', { ascending: true });
+                childrenToRun = dbChildren || [];
+              }
+              
+              if (childrenToRun.length > 0) {
+                toast.info(`Auto-running ${childrenToRun.length} created child prompt(s)...`);
+                try {
+                  const cascadeResult = await executeChildCascade(
+                    childrenToRun,
+                    promptData,
+                    { maxDepth: 99 }
+                  );
+                  if (cascadeResult.depthLimitReached) {
+                    toast.warning('Auto-cascade depth limit reached (99 levels)');
+                  } else {
+                    const successCount = cascadeResult.results.filter(r => r.success).length;
+                    toast.success(`Auto-cascade complete: ${successCount}/${cascadeResult.results.length} succeeded`);
+                  }
+                  await refreshTreeData();
+                } catch (cascadeError) {
+                  console.error('Auto-cascade error:', cascadeError);
+                  toast.error('Auto-cascade failed: ' + cascadeError.message);
                 }
-                await refreshTreeData();
-              } catch (cascadeError) {
-                console.error('Auto-cascade error:', cascadeError);
-                toast.error('Auto-cascade failed: ' + cascadeError.message);
               }
             }
           } else {
@@ -972,37 +996,57 @@ const MainLayout = () => {
             }
 
             // Auto-run created children if enabled
-            if (
-              promptData.auto_run_children && 
-              actionResult.children?.length > 0
-            ) {
-              toast.info(`Auto-running ${actionResult.children.length} created child prompt(s)...`, {
-                source: 'MainLayout.handleRunPrompt.autoCascade',
-              });
+            console.log('Post-action auto-run check (inline):', {
+              auto_run_children: promptData.auto_run_children,
+              createdCount: actionResult.createdCount,
+              childrenLength: actionResult.children?.length,
+              success: actionResult.success,
+            });
+            if (promptData.auto_run_children && actionResult.createdCount > 0) {
+              let childrenToRun = actionResult.children;
               
-              try {
-                const cascadeResult = await executeChildCascade(
-                  actionResult.children,
-                  promptData,
-                  { maxDepth: 99 }
-                );
+              if (!childrenToRun || childrenToRun.length === 0) {
+                console.warn('auto_run_children: actionResult.children empty despite createdCount > 0, fetching from DB');
+                const parentId = actionResult.placement === 'children' 
+                  ? promptData.row_id 
+                  : (actionResult.targetParentRowId || promptData.row_id);
+                const { data: dbChildren } = await supabase
+                  .from(import.meta.env.VITE_PROMPTS_TBL)
+                  .select('row_id, prompt_name')
+                  .eq('parent_row_id', parentId)
+                  .eq('is_deleted', false)
+                  .order('position', { ascending: true });
+                childrenToRun = dbChildren || [];
+              }
+              
+              if (childrenToRun.length > 0) {
+                toast.info(`Auto-running ${childrenToRun.length} created child prompt(s)...`, {
+                  source: 'MainLayout.handleRunPrompt.autoCascade',
+                });
                 
-                if (cascadeResult.depthLimitReached) {
-                  toast.warning('Auto-cascade depth limit reached (99 levels)');
-                } else {
-                  const successCount = cascadeResult.results.filter(r => r.success).length;
-                  toast.success(`Auto-cascade complete: ${successCount}/${cascadeResult.results.length} succeeded`, {
+                try {
+                  const cascadeResult = await executeChildCascade(
+                    childrenToRun,
+                    promptData,
+                    { maxDepth: 99 }
+                  );
+                  
+                  if (cascadeResult.depthLimitReached) {
+                    toast.warning('Auto-cascade depth limit reached (99 levels)');
+                  } else {
+                    const successCount = cascadeResult.results.filter(r => r.success).length;
+                    toast.success(`Auto-cascade complete: ${successCount}/${cascadeResult.results.length} succeeded`, {
+                      source: 'MainLayout.handleRunPrompt.autoCascade',
+                    });
+                  }
+                  
+                  await refreshTreeData();
+                } catch (cascadeError) {
+                  console.error('Auto-cascade error:', cascadeError);
+                  toast.error('Auto-cascade failed: ' + cascadeError.message, {
                     source: 'MainLayout.handleRunPrompt.autoCascade',
                   });
                 }
-                
-                // Refresh tree after auto-cascade
-                await refreshTreeData();
-              } catch (cascadeError) {
-                console.error('Auto-cascade error:', cascadeError);
-                toast.error('Auto-cascade failed: ' + cascadeError.message, {
-                  source: 'MainLayout.handleRunPrompt.autoCascade',
-                });
               }
             }
           } else {
