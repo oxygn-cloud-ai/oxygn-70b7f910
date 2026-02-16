@@ -1654,9 +1654,78 @@ export const useCascadeExecutor = () => {
    * @param {number} options.maxDepth - Maximum recursion depth (default 99)
    * @param {number} options.currentDepth - Current recursion depth (default 0)
    * @param {Object} options.inheritedVariables - Variables to pass to children
-   * @returns {Promise<{ success: boolean, results: Array, depthLimitReached?: boolean }>}
+    * @returns {Promise<{ success: boolean, results: Array, depthLimitReached?: boolean }>}
+    */
+
+  /**
+   * Poll q_pending_responses for a background (GPT-5) response until terminal.
    */
-  const executeChildCascade = useCallback(async (
+  const waitForBackgroundResponse = async (
+    responseId,
+    timeoutMs = 600_000,
+    pollIntervalMs = 10_000
+  ) => {
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeoutMs) {
+      if (isCancelled()) {
+        return { response: null, success: false };
+      }
+
+      // Wait for poll interval, checking cancel every second
+      for (let waited = 0; waited < pollIntervalMs; waited += 1000) {
+        if (isCancelled()) return { response: null, success: false };
+        await new Promise(r => setTimeout(r, Math.min(1000, pollIntervalMs - waited)));
+      }
+
+      // Poll the pending_responses table
+      const { data } = await supabaseClient
+        .from('q_pending_responses')
+        .select('status, output_text, error, usage')
+        .eq('response_id', responseId)
+        .maybeSingle();
+
+      if (!data) continue;
+
+      if (data.status === 'completed' && data.output_text) {
+        return {
+          response: data.output_text,
+          success: true,
+          usage: data.usage,
+          response_id: responseId,
+        };
+      }
+
+      if (['failed', 'cancelled', 'incomplete'].includes(data.status)) {
+        console.error(`Background response ${responseId} ended with status: ${data.status}`, data.error);
+        return { response: null, success: false };
+      }
+
+      // Also try the poll edge function as fallback
+      try {
+        const { data: pollData, error: pollError } = await supabaseClient
+          .functions.invoke('poll-openai-response', {
+            body: { response_id: responseId },
+          });
+
+        if (!pollError && pollData?.status === 'completed' && pollData?.output_text) {
+          return {
+            response: pollData.output_text,
+            success: true,
+            usage: pollData.usage,
+            response_id: responseId,
+          };
+        }
+      } catch (e) {
+        console.warn('Poll edge function error:', e);
+      }
+    }
+
+    console.error(`Background response ${responseId} timed out after ${timeoutMs}ms`);
+    return { response: null, success: false };
+  };
+
+   const executeChildCascade = useCallback(async (
     children,
     parentPrompt,
     options = {}
@@ -1833,6 +1902,23 @@ export const useCascadeExecutor = () => {
             template_variables: templateVariables,
             store_in_history: false,
           });
+
+          // Handle GPT-5 background mode: wait for completion
+          if (result?.interrupted && result?.interruptType === 'long_running') {
+            const bgResponseId = result.interruptData?.responseId;
+            console.log(`executeChildCascade: Child ${childPrompt.prompt_name} went to background mode (${bgResponseId}), waiting...`);
+
+            toast.info(`Waiting for background response: ${childPrompt.prompt_name}`);
+
+            const bgResult = await waitForBackgroundResponse(bgResponseId);
+
+            // Overwrite result with the actual background response
+            result = {
+              response: bgResult.response,
+              usage: bgResult.usage,
+              response_id: bgResult.response_id,
+            };
+          }
         }
 
         const promptResult = {
