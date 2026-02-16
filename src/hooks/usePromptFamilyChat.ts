@@ -10,6 +10,12 @@ import { usePromptFamilyChatStream } from './usePromptFamilyChatStream';
 import { usePendingResponseSubscription } from './usePendingResponseSubscription';
 import type { ChatThread, ChatMessage } from '@/types/chat';
 
+interface FamilyCacheEntry {
+  threadId: string | null;
+  messages: ChatMessage[];
+  threads: ChatThread[];
+}
+
 export interface UsePromptFamilyChatReturn {
   // Thread state
   threads: ChatThread[];
@@ -52,6 +58,11 @@ export const usePromptFamilyChat = (promptRowId: string | null): UsePromptFamily
   const [sessionModel, setSessionModel] = useState<string | null>(null);
   const [sessionReasoningEffort, setSessionReasoningEffort] = useState('auto');
 
+  // Per-family message cache for instant restore on prompt switch
+  const familyCacheRef = useRef<Map<string, FamilyCacheEntry>>(new Map());
+  const previousRootRef = useRef<string | null>(null);
+  const MAX_CACHE_ENTRIES = 20;
+
   // Compose sub-hooks
   const threadManager = usePromptFamilyThreads(rootPromptId);
   const messageManager = usePromptFamilyChatMessages();
@@ -80,6 +91,14 @@ export const usePromptFamilyChat = (promptRowId: string | null): UsePromptFamily
     messageManagerRef.current = messageManager;
     streamManagerRef.current = streamManager;
   });
+
+  // Invalidate cache for the current family (call on mutations)
+  const invalidateCurrentCache = useCallback(() => {
+    if (rootPromptId) {
+      familyCacheRef.current.delete(rootPromptId);
+    }
+  }, [rootPromptId]);
+
 
   // Compute root prompt ID using the pre-computed root_prompt_row_id column
   const computeRootPromptId = useCallback(async (pRowId: string): Promise<string> => {
@@ -188,16 +207,18 @@ export const usePromptFamilyChat = (promptRowId: string | null): UsePromptFamily
   // Create thread wrapper
   const createThread = useCallback(async (title = 'New Chat'): Promise<ChatThread | null> => {
     processedWebhookRef.current = null;  // Reset on new thread
+    invalidateCurrentCache();
     messageManager.clearMessages();
     streamManager.resetStreamState();
     clearPendingResponse();
     return threadManager.createThread(title);
-  }, [threadManager, messageManager, streamManager, clearPendingResponse]);
+  }, [threadManager, messageManager, streamManager, clearPendingResponse, invalidateCurrentCache]);
 
   // Clear messages - creates new thread
   const clearMessages = useCallback(async (): Promise<boolean> => {
     if (!rootPromptId) return false;
     try {
+      invalidateCurrentCache();
       await createThread('New Chat');
       toast.success('Conversation cleared');
       return true;
@@ -206,7 +227,7 @@ export const usePromptFamilyChat = (promptRowId: string | null): UsePromptFamily
       toast.error('Failed to clear conversation');
       return false;
     }
-  }, [rootPromptId, createThread]);
+  }, [rootPromptId, createThread, invalidateCurrentCache]);
 
   // Add message wrapper with optional threadId
   const addMessage = useCallback((
@@ -279,6 +300,7 @@ export const usePromptFamilyChat = (promptRowId: string | null): UsePromptFamily
   }, [threadManager.activeThreadId, promptRowId, messageManager, streamManager, sessionModel, sessionReasoningEffort]);
 
   // CONSOLIDATED: Reset, fetch threads, auto-select, and fetch messages in proper sequence
+  // With per-family cache for instant restore on return visits
   useEffect(() => {
     let cancelled = false;
     
@@ -287,6 +309,22 @@ export const usePromptFamilyChat = (promptRowId: string | null): UsePromptFamily
       const tm = threadManagerRef.current;
       const mm = messageManagerRef.current;
       const sm = streamManagerRef.current;
+      
+      // Save outgoing family state to cache before switching
+      const outgoingRoot = previousRootRef.current;
+      if (outgoingRoot && tm.activeThreadId) {
+        familyCacheRef.current.set(outgoingRoot, {
+          threadId: tm.activeThreadId,
+          messages: mm.messages,
+          threads: tm.threads,
+        });
+        // Evict oldest entry if cache exceeds limit
+        if (familyCacheRef.current.size > MAX_CACHE_ENTRIES) {
+          const oldestKey = familyCacheRef.current.keys().next().value;
+          if (oldestKey) familyCacheRef.current.delete(oldestKey);
+        }
+      }
+      previousRootRef.current = rootPromptId;
       
       // Reset UI state
       tm.setActiveThreadId(null);
@@ -297,13 +335,45 @@ export const usePromptFamilyChat = (promptRowId: string | null): UsePromptFamily
         return;
       }
       
+      // Check cache for incoming family — instant restore
+      const cached = familyCacheRef.current.get(rootPromptId);
+      if (cached) {
+        tm.setActiveThreadId(cached.threadId);
+        mm.setMessages(cached.messages);
+        tm.restoreThreads(cached.threads);
+        
+        // Background refresh: silently sync from server without loading flash
+        const bgThreadId = cached.threadId;
+        (async () => {
+          try {
+            const freshThreadId = await tm.fetchThreads();
+            if (cancelled) return;
+            
+            // If the cached thread no longer exists, the fetchThreads auto-select handles it
+            const effectiveThreadId = bgThreadId && tm.threads.some(t => t.row_id === bgThreadId) 
+              ? bgThreadId 
+              : freshThreadId;
+            
+            if (effectiveThreadId) {
+              const freshMessages = await tm.fetchMessagesQuietly(effectiveThreadId);
+              if (!cancelled && freshMessages.length > 0) {
+                mm.setMessages(freshMessages);
+              }
+            }
+          } catch {
+            // Swallow — cache is already displayed
+          }
+        })();
+        
+        return;
+      }
+      
+      // No cache: full server fetch (original behavior)
       try {
-        // Fetch threads - returns auto-selected thread ID directly
         const autoSelectedId = await tm.fetchThreads();
         
         if (cancelled) return;
         
-        // Fetch messages for the auto-selected thread using returned ID (not stale state)
         if (autoSelectedId) {
           const messages = await tm.switchThread(autoSelectedId);
           if (!cancelled) {
@@ -347,7 +417,7 @@ export const usePromptFamilyChat = (promptRowId: string | null): UsePromptFamily
     fetchMessages: messageManager.fetchMessages,
     createThread,
     switchThread,
-    deleteThread: threadManager.deleteThread,
+    deleteThread: async (threadId: string) => { invalidateCurrentCache(); return threadManager.deleteThread(threadId); },
     addMessage,
     clearMessages,
     sendMessage,
