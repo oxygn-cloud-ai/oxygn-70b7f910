@@ -78,7 +78,7 @@ async function verifyWebhookSignature(
     const signaturePayload = `${webhookId}.${webhookTimestamp}.${body}`;
     
     // Decode base64 secret (remove whsec_ prefix if present)
-    const secretBase64 = secret.replace('whsec_', '');
+    const secretBase64 = secret.replace('whsec_', '').trim();
     const secretBytes = Uint8Array.from(atob(secretBase64), c => c.charCodeAt(0));
     
     const key = await crypto.subtle.importKey(
@@ -103,40 +103,13 @@ async function verifyWebhookSignature(
     const receivedSignatures = webhookSignature.split(' ');
     let matched = receivedSignatures.some(sig => sig === computedSignature);
     
-    // Fallback: try raw secret bytes (not base64-decoded) in case format differs
-    if (!matched) {
-      try {
-        const rawSecretStr = secret.replace('whsec_', '');
-        const rawKey = await crypto.subtle.importKey(
-          'raw',
-          new TextEncoder().encode(rawSecretStr),
-          { name: 'HMAC', hash: 'SHA-256' },
-          false,
-          ['sign']
-        );
-        const rawSigBytes = await crypto.subtle.sign(
-          'HMAC',
-          rawKey,
-          new TextEncoder().encode(signaturePayload)
-        );
-        const rawComputedSig = 'v1,' + btoa(
-          String.fromCharCode(...new Uint8Array(rawSigBytes))
-        );
-        matched = receivedSignatures.some(sig => sig === rawComputedSig);
-        if (matched) {
-          console.log('[openai-webhook] [DIAG] Matched using raw secret fallback');
-        }
-      } catch (fallbackErr: unknown) {
-        console.warn('[openai-webhook] [DIAG] Raw fallback failed:', fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr));
-      }
-    }
-    
     if (!matched) {
       console.error('[openai-webhook] [DIAG] Signature mismatch:', {
         computedPrefix: computedSignature.slice(0, 20) + '...',
         receivedPrefixes: receivedSignatures.map(s => s.slice(0, 20) + '...'),
         secretLength: secret.length,
         hasWhsecPrefix: secret.startsWith('whsec_'),
+        decodedKeyLength: secretBytes.length,
         bodyLength: body.length,
       });
     }
@@ -171,7 +144,7 @@ serve(async (req) => {
   const body = await req.text();
   
   // Verify signature if secret is configured
-  const webhookSecret = Deno.env.get('OPENAI_WEBHOOK_SECRET');
+  const webhookSecret = Deno.env.get('OPENAI_WEBHOOK_SECRET')?.trim();
   if (webhookSecret) {
     console.log('[openai-webhook] [DIAG] Verifying signature:', {
       secretLength: webhookSecret.length,
