@@ -181,9 +181,21 @@ Note: `q.parent.prompt.name` uses the IMMEDIATE parent, not the top-level root.
 
 **Manus task execution**: Creates task via edge function, then sets up Realtime subscription + 2s polling interval with 30-minute timeout. Waits for: completed | failed | cancelled | requires_input.
 
-**Background polling for child cascades**: When `executeChildCascade()` encounters a `long_running` interrupt (GPT-5 models), it automatically polls `q_pending_responses` via `waitForBackgroundResponse()` with 10-second intervals and 10-minute timeout. Child prompts block until the background response completes, ensuring recursive cascades wait for actual AI responses rather than returning prematurely. Uses dual polling strategy: database query + edge function fallback (`poll-openai-response`). Respects cancellation checks every 1 second during wait intervals.
+**Background polling for child cascades**: When `executeChildCascade()` encounters a `long_running` interrupt (GPT-5 models), it waits via `waitForBackgroundResponse()` using a hybrid Realtime + polling strategy (mirroring `runManusTask` pattern):
+1. Realtime subscription on `q_pending_responses` for instant updates
+2. Database polling fallback (10-second intervals) to catch missed realtime events
+3. Edge function polling (`poll-openai-response`) as tertiary fallback
+4. Cancellation checks every 1 second
+5. 10-minute timeout with automatic cleanup of all timers/subscriptions
 
-**Action node handling**: Extract JSON from response → validate against schema → show preview dialog (unless `skip_preview`) → execute post-action → if `auto_run_children`: recursively execute child cascade.
+This ensures recursive cascades block until actual AI responses complete rather than returning prematurely, with robust handling of realtime delivery failures.
+
+**Action node handling**: Extract JSON from response → validate against schema → show preview dialog (unless `skip_preview`) → execute post-action → if `auto_run_children`:
+1. Wrap recursive cascade in `startCascade()`/`completeCascade()` lifecycle hooks
+2. Fetch children ordered by `position_lex` (not `position`)
+3. DB fallback if `actionResult.children` array is empty despite `createdCount > 0`
+4. Success toast only fires for successful prompt executions (not errors)
+5. Recursively execute child cascade with proper depth tracking
 
 ### SSE Streaming Details
 
