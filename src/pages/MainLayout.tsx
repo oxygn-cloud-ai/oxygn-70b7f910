@@ -276,7 +276,7 @@ const MainLayout = () => {
   // Phase 1: Run prompt and cascade hooks
   const { runPrompt, runConversation, cancelRun, isRunning: isRunningPromptInternal, progress: runProgress } = useConversationRun();
   const { executeCascade, hasChildren: checkHasChildren, executeChildCascade } = useCascadeExecutor();
-  const { isRunning: isCascadeRunning, currentPromptRowId: currentCascadePromptId, singleRunPromptId, actionPreview, showActionPreview, resolveActionPreview, startSingleRun, endSingleRun, pendingQuestion, questionProgress, collectedQuestionVars, resolveQuestion, showQuestion, addCollectedQuestionVar, cancel: cancelCascade } = useCascadeRun();
+  const { isRunning: isCascadeRunning, currentPromptRowId: currentCascadePromptId, singleRunPromptId, actionPreview, showActionPreview, resolveActionPreview, startSingleRun, endSingleRun, startCascade, completeCascade, pendingQuestion, questionProgress, collectedQuestionVars, resolveQuestion, showQuestion, addCollectedQuestionVar, cancel: cancelCascade } = useCascadeRun();
   // Note: Use isCascadeRunning from useCascadeRun() context as single source of truth
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [runStartingFor, setRunStartingFor] = useState(null); // Debounce state for run button
@@ -490,12 +490,13 @@ const MainLayout = () => {
                   .select('row_id, prompt_name')
                   .eq('parent_row_id', parentId)
                   .eq('is_deleted', false)
-                  .order('position', { ascending: true });
+                  .order('position_lex', { ascending: true });
                 childrenToRun = dbChildren || [];
               }
               
               if (childrenToRun.length > 0) {
                 toast.info(`Auto-running ${childrenToRun.length} created child prompt(s)...`);
+                startCascade(1, childrenToRun.length, 0);
                 try {
                   const cascadeResult = await executeChildCascade(
                     childrenToRun,
@@ -512,6 +513,8 @@ const MainLayout = () => {
                 } catch (cascadeError) {
                   console.error('Auto-cascade error:', cascadeError);
                   toast.error('Auto-cascade failed: ' + cascadeError.message);
+                } finally {
+                  completeCascade();
                 }
               }
             }
@@ -1015,7 +1018,7 @@ const MainLayout = () => {
                   .select('row_id, prompt_name')
                   .eq('parent_row_id', parentId)
                   .eq('is_deleted', false)
-                  .order('position', { ascending: true });
+                  .order('position_lex', { ascending: true });
                 childrenToRun = dbChildren || [];
               }
               
@@ -1024,6 +1027,7 @@ const MainLayout = () => {
                   source: 'MainLayout.handleRunPrompt.autoCascade',
                 });
                 
+                startCascade(1, childrenToRun.length, 0);
                 try {
                   const cascadeResult = await executeChildCascade(
                     childrenToRun,
@@ -1046,6 +1050,8 @@ const MainLayout = () => {
                   toast.error('Auto-cascade failed: ' + cascadeError.message, {
                     source: 'MainLayout.handleRunPrompt.autoCascade',
                   });
+                } finally {
+                  completeCascade();
                 }
               }
             }
