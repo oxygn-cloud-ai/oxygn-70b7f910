@@ -1,55 +1,57 @@
 
+## Fix: Execute Post-Actions When Background (GPT-5) Responses Complete
 
-## Webhook Signature Fix: Secret Whitespace Trimming and Improved Diagnostics
+### Problem
 
-### Root Cause Analysis
-
-The `OPENAI_WEBHOOK_SECRET` is confirmed correct in the OpenAI dashboard, and the endpoint URL is correct. Both the base64-decoded and raw-UTF8 HMAC attempts fail. The most probable cause is **invisible whitespace** (trailing newline, space, or carriage return) stored alongside the secret value. When secrets are pasted into input fields, trailing whitespace is commonly included.
-
-The code on line 81 does:
-```
-const secretBase64 = secret.replace('whsec_', '');
-```
-...but never calls `.trim()`. If even a single trailing character is present, `atob()` silently produces different key bytes, and every HMAC computation will mismatch.
-
-### Changes Required
-
-**File: `supabase/functions/openai-webhook/index.ts`**
-
-1. **Add `.trim()` to all secret processing paths** -- Apply `.trim()` immediately when the secret is first read from the environment variable, before any processing occurs. This single fix at the entry point covers both the base64 and raw fallback paths.
-
-2. **Enhance diagnostic logging** -- Log the decoded key byte length (not the secret itself) so future mismatches can be diagnosed instantly. A 32-byte decoded key confirms correct base64; anything else signals corruption.
-
-3. **Remove the raw-secret fallback** -- Once trimming is applied, the raw fallback becomes unnecessary complexity. OpenAI/Svix always uses base64-encoded secrets with the `whsec_` prefix. The fallback masks the real problem and adds code surface for no benefit. Remove it to simplify the verification path.
-
-### Technical Details
+When an action node (like "Japan SSI Business Agreement Assessment") uses GPT-5, the request goes into background/webhook mode. The `handleRunPrompt` function exits early at line 520 with `return`, skipping the entire post-action pipeline (lines 609-830) that creates child prompts. When the response arrives via webhook/polling, the completion effect (lines 296-329) only shows a toast and refreshes the prompt data -- it never triggers the child creation logic.
 
 ```text
-Before (broken):
-  secret = "whsec_abc123...XYZ=\n"  (trailing newline from paste)
-  secretBase64 = "abc123...XYZ=\n"
-  atob("abc123...XYZ=\n") -> wrong bytes -> wrong HMAC -> mismatch
+Normal flow (non-GPT-5):
+  handleRunPrompt -> runPrompt -> result -> post-action -> children created
 
-After (fixed):
-  secret = "whsec_abc123...XYZ="  (trimmed)
-  secretBase64 = "abc123...XYZ="
-  atob("abc123...XYZ=") -> correct 32 bytes -> correct HMAC -> match
+GPT-5 background flow (broken):
+  handleRunPrompt -> runPrompt -> "long_running" interrupt -> RETURN (exit early)
+  ... later ...
+  webhook/polling delivers result -> toast shown -> prompt data refreshed
+                                                     ^ post-action NEVER runs
 ```
 
-### Specific Edits
+### Solution
 
-In the `serve()` handler where the secret is read (~line 148):
-- Change `Deno.env.get('OPENAI_WEBHOOK_SECRET')` to `Deno.env.get('OPENAI_WEBHOOK_SECRET')?.trim()`
+Add post-action execution to the webhook response delivery effect (the `useEffect` at lines 296-329). When a background response completes AND the prompt is an action node with a configured `post_action`, extract the JSON from `output_text`, validate it, and call `executePostAction` to create the children.
 
-In `verifyWebhookSignature` (~line 81):
-- Add `.trim()` to the secret processing: `const secretBase64 = secret.replace('whsec_', '').trim();`
-- Add a diagnostic log: `decodedKeyLength: secretBytes.length` to the mismatch error object
+### Technical Changes
 
-Remove the raw-secret fallback block (~lines 106-131) entirely.
+**File: `src/pages/MainLayout.tsx`**
 
-### Risk Assessment
+Modify the GPT-5 webhook response delivery effect (~lines 296-329) to:
 
-- **Low risk**: `.trim()` is a safe, idempotent operation -- if no whitespace exists, behavior is unchanged
-- Removing the fallback simplifies the code and eliminates a misleading diagnostic path
-- No other files are modified
+1. When `webhookComplete && webhookOutputText` is true, fetch the prompt data for `pendingWebhookPromptId`
+2. Check if the prompt has `node_type === 'action'` and a `post_action` configured
+3. If yes, run the same post-action pipeline used in `handleRunPrompt`:
+   - Parse the JSON from `webhookOutputText` via `extractJsonFromResponse`
+   - Store `extracted_variables` in the DB
+   - Validate the response via `validateActionResponse`
+   - Show the action preview dialog if `skip_preview` is not true
+   - Execute `executePostAction` to create children
+   - Store `last_action_result`
+   - Refresh the tree data
+   - Process variable assignments if configured
+   - Auto-run children if `auto_run_children` is enabled
+4. If parsing fails or no post-action is configured, fall through to the existing toast-only behavior
 
+This reuses all existing executor logic -- no changes to `createChildrenJson.ts`, `createChildrenText.ts`, or any other executor.
+
+### Edge Cases Handled
+
+- **Non-action prompts**: The existing toast-only behavior remains unchanged for normal prompts using GPT-5 in background mode
+- **skip_preview**: Honoured -- if the action config has `skip_preview: true`, children are created immediately without a dialog
+- **JSON parse failure**: Caught and surfaced as a warning toast, same as the inline flow
+- **Validation failure**: Surfaced as an error toast with suggestions, same as the inline flow
+- **User navigated away from the prompt**: Post-action still executes since it uses `pendingWebhookPromptId` (not the currently selected prompt)
+
+### Scope
+
+- Only `src/pages/MainLayout.tsx` is modified
+- No edge function changes needed
+- No database changes needed
