@@ -181,6 +181,8 @@ Note: `q.parent.prompt.name` uses the IMMEDIATE parent, not the top-level root.
 
 **Manus task execution**: Creates task via edge function, then sets up Realtime subscription + 2s polling interval with 30-minute timeout. Waits for: completed | failed | cancelled | requires_input.
 
+**Background polling for child cascades**: When `executeChildCascade()` encounters a `long_running` interrupt (GPT-5 models), it automatically polls `q_pending_responses` via `waitForBackgroundResponse()` with 10-second intervals and 10-minute timeout. Child prompts block until the background response completes, ensuring recursive cascades wait for actual AI responses rather than returning prematurely. Uses dual polling strategy: database query + edge function fallback (`poll-openai-response`). Respects cancellation checks every 1 second during wait intervals.
+
 **Action node handling**: Extract JSON from response → validate against schema → show preview dialog (unless `skip_preview`) → execute post-action → if `auto_run_children`: recursively execute child cascade.
 
 ### SSE Streaming Details
