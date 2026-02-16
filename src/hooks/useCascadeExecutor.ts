@@ -1974,17 +1974,22 @@ export const useCascadeExecutor = () => {
           // Handle GPT-5 background mode: wait for completion
           if (result?.interrupted && result?.interruptType === 'long_running') {
             const bgResponseId = result.interruptData?.responseId;
-            console.log(`executeChildCascade: Child ${childPrompt.prompt_name} went to background mode (${bgResponseId}), waiting...`);
+            if (!bgResponseId) {
+              console.error('executeChildCascade: No responseId in long_running interrupt data');
+              result = { response: null };
+            } else {
+              console.log(`executeChildCascade: Child ${childPrompt.prompt_name} went to background mode (${bgResponseId}), waiting...`);
 
-            toast.info(`Waiting for background response: ${childPrompt.prompt_name}`);
+              toast.info(`Waiting for background response: ${childPrompt.prompt_name}`);
 
-            const bgResult = await waitForBackgroundResponse(bgResponseId);
+              const bgResult = await waitForBackgroundResponse(bgResponseId);
 
-            // Overwrite result with the actual background response
-            result = {
-              response: bgResult.response,
-              response_id: bgResult.response_id,
-            };
+              // Overwrite result with the actual background response
+              result = {
+                response: bgResult.response,
+                response_id: bgResult.response_id,
+              };
+            }
           }
         }
 
@@ -2005,6 +2010,8 @@ export const useCascadeExecutor = () => {
             openai_response_id: result?.response_id,
             output: result?.response,
             latency_ms: latencyMs,
+            // usage_tokens: only populated for streaming results from runConversation;
+            // background-mode results (waitForBackgroundResponse) never include usage data
             usage_tokens: result?.usage ? {
               input: result.usage.input_tokens || result.usage.prompt_tokens || 0,
               output: result.usage.output_tokens || result.usage.completion_tokens || 0,
@@ -2162,7 +2169,7 @@ export const useCascadeExecutor = () => {
     }
 
     return { success: true, results };
-  }, [runConversation, isCancelled, waitWhilePaused, createSpan, completeSpan, failSpan, startTrace, completeTrace, isManusModel, runManusTask]);
+  }, [runConversation, isCancelled, waitWhilePaused, waitForBackgroundResponse, createSpan, completeSpan, failSpan, startTrace, completeTrace, isManusModel, runManusTask]);
 
   return {
     executeCascade,
