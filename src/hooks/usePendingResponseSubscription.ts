@@ -31,7 +31,7 @@ interface UsePendingResponseSubscriptionResult {
   clearPendingResponse: () => void;
 }
 
-const POLL_INTERVAL_MS = 30_000; // 30 seconds
+const POLL_INTERVAL_MS = 10_000; // 10 seconds
 const TIMEOUT_MS = 600_000; // 10 minutes
 
 export function usePendingResponseSubscription(
@@ -166,7 +166,7 @@ export function usePendingResponseSubscription(
       doPoll();
       // Then poll every POLL_INTERVAL_MS
       pollIntervalRef.current = setInterval(doPoll, POLL_INTERVAL_MS);
-    }, 5_000); // 5s initial delay
+    }, 2_000); // 2s initial delay
 
     return () => {
       clearTimeout(initialTimeout);

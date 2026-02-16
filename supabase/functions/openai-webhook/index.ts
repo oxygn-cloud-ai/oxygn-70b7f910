@@ -101,7 +101,35 @@ async function verifyWebhookSignature(
     
     // Check if computed signature matches any provided signature
     const receivedSignatures = webhookSignature.split(' ');
-    const matched = receivedSignatures.some(sig => sig === computedSignature);
+    let matched = receivedSignatures.some(sig => sig === computedSignature);
+    
+    // Fallback: try raw secret bytes (not base64-decoded) in case format differs
+    if (!matched) {
+      try {
+        const rawSecretStr = secret.replace('whsec_', '');
+        const rawKey = await crypto.subtle.importKey(
+          'raw',
+          new TextEncoder().encode(rawSecretStr),
+          { name: 'HMAC', hash: 'SHA-256' },
+          false,
+          ['sign']
+        );
+        const rawSigBytes = await crypto.subtle.sign(
+          'HMAC',
+          rawKey,
+          new TextEncoder().encode(signaturePayload)
+        );
+        const rawComputedSig = 'v1,' + btoa(
+          String.fromCharCode(...new Uint8Array(rawSigBytes))
+        );
+        matched = receivedSignatures.some(sig => sig === rawComputedSig);
+        if (matched) {
+          console.log('[openai-webhook] [DIAG] Matched using raw secret fallback');
+        }
+      } catch (fallbackErr: unknown) {
+        console.warn('[openai-webhook] [DIAG] Raw fallback failed:', fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr));
+      }
+    }
     
     if (!matched) {
       console.error('[openai-webhook] [DIAG] Signature mismatch:', {
