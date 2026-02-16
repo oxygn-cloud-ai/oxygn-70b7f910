@@ -435,11 +435,11 @@ const MainLayout = () => {
             await refreshTreeData();
             
             // Auto-expand parent
-            if (actionResult.data?.createdCount > 0) {
-              const parentId = actionResult.data?.placement === 'children'
+            if (actionResult.createdCount > 0) {
+              const parentId = actionResult.placement === 'children'
                 ? promptData.row_id
-                : (actionResult.data?.placement === 'specific_prompt'
-                    ? actionResult.data?.targetParentRowId
+                : (actionResult.placement === 'specific_prompt'
+                    ? actionResult.targetParentRowId
                     : promptData.parent_row_id);
               if (parentId) {
                 setExpandedFolders(prev => ({ ...prev, [parentId]: true }));
@@ -932,11 +932,11 @@ const MainLayout = () => {
             await refreshTreeData();
             
             // Auto-expand the parent prompt so user can see the new children
-            if (actionResult.data?.createdCount > 0) {
-              const parentId = actionResult.data?.placement === 'children' 
+            if (actionResult.createdCount > 0) {
+              const parentId = actionResult.placement === 'children' 
                 ? promptData.row_id 
-                : (actionResult.data?.placement === 'specific_prompt' 
-                    ? actionResult.data?.targetParentRowId 
+                : (actionResult.placement === 'specific_prompt' 
+                    ? actionResult.targetParentRowId 
                     : promptData.parent_row_id);
               if (parentId) {
                 setExpandedFolders(prev => ({ ...prev, [parentId]: true }));
