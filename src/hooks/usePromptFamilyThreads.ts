@@ -10,9 +10,11 @@ export interface UsePromptFamilyThreadsReturn {
   activeThread: ChatThread | null;
   isLoading: boolean;
   setActiveThreadId: (id: string | null) => void;
+  restoreThreads: React.Dispatch<React.SetStateAction<ChatThread[]>>;
   fetchThreads: () => Promise<string | null>;  // Fixed: returns auto-selected thread ID
   createThread: (title?: string) => Promise<ChatThread | null>;
   switchThread: (threadId: string) => Promise<ChatMessage[]>;
+  fetchMessagesQuietly: (threadId: string) => Promise<ChatMessage[]>;
   deleteThread: (threadId: string) => Promise<boolean>;
 }
 
@@ -219,6 +221,29 @@ export function usePromptFamilyThreads(rootPromptId: string | null): UsePromptFa
     }
   }, []);
 
+  // Fetch messages for a thread WITHOUT setting isLoading or updating activeThreadId.
+  // Used exclusively by background refresh to avoid UI flicker.
+  const fetchMessagesQuietly = useCallback(async (threadId: string): Promise<ChatMessage[]> => {
+    if (!threadId) return [];
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return [];
+      const response = await supabase.functions.invoke('thread-manager', {
+        body: { action: 'get_messages', thread_row_id: threadId, limit: 100 }
+      });
+      if (response.error) return [];
+      if (response.data?.status === 'openai_not_configured') return [];
+      return (response.data?.messages || []).map((m: { id: string; role: 'user' | 'assistant'; content: string; created_at?: string }) => ({
+        row_id: m.id,
+        role: m.role,
+        content: m.content,
+        created_at: m.created_at,
+      }));
+    } catch {
+      return [];
+    }
+  }, []);
+
   const activeThread = threads.find(t => t.row_id === activeThreadId) || null;
 
   return {
@@ -227,9 +252,11 @@ export function usePromptFamilyThreads(rootPromptId: string | null): UsePromptFa
     activeThread,
     isLoading,
     setActiveThreadId,
+    restoreThreads: setThreads,
     fetchThreads,
     createThread,
     switchThread,
+    fetchMessagesQuietly,
     deleteThread,
   };
 }
