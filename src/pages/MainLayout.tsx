@@ -293,25 +293,222 @@ const MainLayout = () => {
     clearPendingResponse: clearWebhookPending,
   } = usePendingResponseSubscription(pendingWebhookResponseId);
   
-  // GPT-5 webhook response delivery effect
+  // GPT-5 webhook response delivery effect — includes post-action pipeline for action nodes
   useEffect(() => {
     if (!pendingWebhookResponseId) return;
     
     if (webhookComplete && webhookOutputText) {
+      // Capture the prompt ID before clearing state
+      const completedPromptId = pendingWebhookPromptId;
+      
       toast.success('Background response received', {
         description: webhookOutputText.slice(0, 100) + (webhookOutputText.length > 100 ? '...' : ''),
         duration: 5000,
       });
       
-      if (pendingWebhookPromptId && pendingWebhookPromptId === selectedPromptId) {
-        fetchItemData(pendingWebhookPromptId).then(data => {
-          if (data) setSelectedPromptData(data);
-        });
-      }
-      
+      // Clear pending state first to prevent re-entry
       setPendingWebhookResponseId(null);
       setPendingWebhookPromptId(null);
       clearWebhookPending();
+      
+      // Run post-action pipeline for action nodes
+      (async () => {
+        try {
+          if (!completedPromptId) return;
+          
+          // Fetch latest prompt data (user may have navigated away)
+          const promptData = await fetchItemData(completedPromptId);
+          if (!promptData) return;
+          
+          // Refresh selected prompt data if user is still viewing it
+          if (completedPromptId === selectedPromptId) {
+            setSelectedPromptData(promptData);
+          }
+          
+          // Check if this is an action node with post-action configured
+          const hasPostAction = !!promptData.post_action;
+          const isActionEffective = promptData.node_type === 'action' || hasPostAction;
+          
+          if (!isActionEffective || !hasPostAction) return;
+          
+          // Parse JSON from the webhook output
+          let jsonResponse;
+          try {
+            jsonResponse = extractJsonFromResponse(webhookOutputText);
+          } catch (jsonError) {
+            console.warn('Background action node response not valid JSON:', jsonError);
+            toast.warning('Action node response not valid JSON', {
+              description: 'The background response could not be parsed as JSON for post-action execution.',
+              source: 'MainLayout.webhookPostAction',
+            });
+            return;
+          }
+          
+          // Store extracted_variables in DB
+          await supabase
+            .from(import.meta.env.VITE_PROMPTS_TBL)
+            .update({ extracted_variables: jsonResponse })
+            .eq('row_id', completedPromptId);
+          
+          // Validate response
+          const validation = validateActionResponse(
+            jsonResponse,
+            promptData.post_action_config,
+            promptData.post_action
+          );
+          
+          if (!validation.valid) {
+            toast.error('Action validation failed', {
+              description: validation.error,
+              source: 'MainLayout.webhookPostAction.validation',
+              details: JSON.stringify(validation, null, 2),
+            });
+            await supabase
+              .from(import.meta.env.VITE_PROMPTS_TBL)
+              .update({
+                last_action_result: {
+                  status: 'failed',
+                  error: validation.error,
+                  available_arrays: validation.availableArrays,
+                  executed_at: new Date().toISOString(),
+                }
+              })
+              .eq('row_id', completedPromptId);
+            return;
+          }
+          
+          // Show preview unless skip_preview is true
+          const skipPreview = promptData.post_action_config?.skip_preview === true;
+          
+          if (!skipPreview && promptData.post_action === 'create_children_json') {
+            const confirmed = await showActionPreview({
+              jsonResponse,
+              config: promptData.post_action_config,
+              promptName: promptData.prompt_name,
+            });
+            
+            if (!confirmed) {
+              toast.info('Action cancelled by user');
+              await supabase
+                .from(import.meta.env.VITE_PROMPTS_TBL)
+                .update({
+                  last_action_result: {
+                    status: 'cancelled',
+                    reason: 'user_cancelled',
+                    executed_at: new Date().toISOString(),
+                  }
+                })
+                .eq('row_id', completedPromptId);
+              return;
+            }
+          }
+          
+          // Execute post-action
+          const actionResult = await executePostAction({
+            supabase,
+            prompt: promptData,
+            jsonResponse,
+            actionId: promptData.post_action,
+            config: promptData.post_action_config,
+            context: { userId: currentUser?.id },
+          });
+          
+          // Store execution result
+          await supabase
+            .from(import.meta.env.VITE_PROMPTS_TBL)
+            .update({
+              last_action_result: {
+                status: actionResult.success ? 'success' : 'failed',
+                created_count: actionResult.createdCount || 0,
+                target_parent_id: actionResult.targetParentRowId,
+                message: actionResult.message,
+                error: actionResult.error || null,
+                executed_at: new Date().toISOString(),
+              }
+            })
+            .eq('row_id', completedPromptId);
+          
+          if (actionResult.success) {
+            toast.success(`Action completed: ${actionResult.message || 'Success'}`, {
+              source: 'MainLayout.webhookPostAction',
+            });
+            await refreshTreeData();
+            
+            // Auto-expand parent
+            if (actionResult.data?.createdCount > 0) {
+              const parentId = actionResult.data?.placement === 'children'
+                ? promptData.row_id
+                : (actionResult.data?.placement === 'specific_prompt'
+                    ? actionResult.data?.targetParentRowId
+                    : promptData.parent_row_id);
+              if (parentId) {
+                setExpandedFolders(prev => ({ ...prev, [parentId]: true }));
+              }
+            }
+            
+            // Process variable assignments if configured
+            if (promptData.variable_assignments_config?.enabled && jsonResponse) {
+              try {
+                const varResult = await processVariableAssignments({
+                  supabase,
+                  promptRowId: promptData.row_id,
+                  jsonResponse,
+                  config: promptData.variable_assignments_config,
+                  onVariablesChanged: (pId) => {
+                    window.dispatchEvent(new CustomEvent('q:prompt-variables-updated', {
+                      detail: { promptRowId: pId }
+                    }));
+                  },
+                });
+                if (varResult.processed > 0) {
+                  toast.success(`Updated ${varResult.processed} variable(s)`, {
+                    source: 'MainLayout.webhookPostAction.variableAssignments',
+                  });
+                }
+              } catch (varError) {
+                console.error('Variable assignment processing failed:', varError);
+              }
+            }
+            
+            // Auto-run created children if enabled
+            if (promptData.auto_run_children && actionResult.children?.length > 0) {
+              toast.info(`Auto-running ${actionResult.children.length} created child prompt(s)...`);
+              try {
+                const cascadeResult = await executeChildCascade(
+                  actionResult.children,
+                  promptData,
+                  { maxDepth: 99 }
+                );
+                if (cascadeResult.depthLimitReached) {
+                  toast.warning('Auto-cascade depth limit reached (99 levels)');
+                } else {
+                  const successCount = cascadeResult.results.filter(r => r.success).length;
+                  toast.success(`Auto-cascade complete: ${successCount}/${cascadeResult.results.length} succeeded`);
+                }
+                await refreshTreeData();
+              } catch (cascadeError) {
+                console.error('Auto-cascade error:', cascadeError);
+                toast.error('Auto-cascade failed: ' + cascadeError.message);
+              }
+            }
+          } else {
+            toast.warning(`Action failed: ${actionResult.error}`, {
+              source: 'MainLayout.webhookPostAction',
+            });
+          }
+          
+          // Refresh selected prompt data after all operations
+          if (completedPromptId === selectedPromptId) {
+            const updatedData = await fetchItemData(completedPromptId);
+            if (updatedData) setSelectedPromptData(updatedData);
+          }
+        } catch (err) {
+          console.error('Webhook post-action pipeline error:', err);
+          toast.error('Post-action failed after background completion', {
+            description: err.message,
+          });
+        }
+      })();
     }
     
     if (webhookFailed) {
@@ -326,7 +523,8 @@ const MainLayout = () => {
     }
   }, [webhookComplete, webhookFailed, webhookOutputText, webhookErrorMessage,
       pendingWebhookResponseId, pendingWebhookPromptId, selectedPromptId,
-      fetchItemData, clearWebhookPending]);
+      fetchItemData, clearWebhookPending, supabase, currentUser?.id,
+      refreshTreeData, showActionPreview, executeChildCascade, setExpandedFolders]);
   
   // Combined running state: true if hook is running OR we have an immediate single run request
   const isRunningPrompt = isRunningPromptInternal || singleRunPromptId !== null;
