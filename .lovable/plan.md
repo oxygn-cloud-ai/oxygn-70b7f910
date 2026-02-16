@@ -1,108 +1,55 @@
 
 
-# Fix: Webhook Signature Mismatch Causing Background Request Timeouts
+## Webhook Signature Fix: Secret Whitespace Trimming and Improved Diagnostics
 
-## Diagnosis
+### Root Cause Analysis
 
-### Root Cause
-The `openai-webhook` edge function is **consistently rejecting all incoming webhooks** due to HMAC signature mismatch. Every single webhook call logs:
+The `OPENAI_WEBHOOK_SECRET` is confirmed correct in the OpenAI dashboard, and the endpoint URL is correct. Both the base64-decoded and raw-UTF8 HMAC attempts fail. The most probable cause is **invisible whitespace** (trailing newline, space, or carriage return) stored alongside the secret value. When secrets are pasted into input fields, trailing whitespace is commonly included.
+
+The code on line 81 does:
 ```
-[DIAG] Signature mismatch: {
-  computedPrefix: "v1,tCN9/Gl4P8...",
-  receivedPrefixes: ["v1,YEY9hLe//S6..."],
-  secretLength: 50, hasWhsecPrefix: true
-}
+const secretBase64 = secret.replace('whsec_', '');
 ```
+...but never calls `.trim()`. If even a single trailing character is present, `atob()` silently produces different key bytes, and every HMAC computation will mismatch.
 
-The `OPENAI_WEBHOOK_SECRET` stored in Lovable Cloud does not match the signing key OpenAI is using. This means GPT-5 background responses are never delivered via webhook.
+### Changes Required
 
-### Why the Polling Fallback Also Fails
-The system has a polling fallback (`poll-openai-response` called every 30s from the browser), but:
-- It only runs while the user keeps the page open and focused
-- If the user navigates away or switches prompts, polling stops
-- The 10-minute client-side timeout (`TIMEOUT_MS`) fires before GPT-5 completes
-- **Two pending responses are currently stuck** in the database with status `pending` and no `webhook_event_id`
-
-### Evidence
-Database query shows two orphaned rows:
-- `resp_...971c` (gpt-5-nano) created 08:14:48 -- still `pending`
-- `resp_...abad` (gpt-5) created 08:13:00 -- still `pending`
-
-Both have `webhook_event_id: null`, confirming no webhook was ever accepted.
-
-## Fix Plan
-
-### Step 1: Re-configure the Webhook Secret (Configuration Fix)
-The `OPENAI_WEBHOOK_SECRET` must be re-synced with OpenAI. This requires the user to:
-1. Go to the OpenAI dashboard, navigate to Webhooks
-2. Delete the existing webhook endpoint and create a new one pointing to the same URL
-3. Copy the new signing secret (starts with `whsec_`)
-4. Update the `OPENAI_WEBHOOK_SECRET` in Lovable Cloud
-
-This is a manual step that must be done by the user.
-
-### Step 2: Clean Up Stuck Pending Responses (Database Fix)
-Mark the two orphaned pending responses as `failed` so they stop triggering UI errors:
-```sql
-UPDATE q_pending_responses
-SET status = 'failed',
-    error = 'Webhook delivery failed - signature mismatch',
-    completed_at = now()
-WHERE status = 'pending'
-  AND created_at < now() - interval '30 minutes';
-```
-
-### Step 3: Improve Polling Resilience (Code Fix)
-**File: `src/hooks/usePendingResponseSubscription.ts`**
-
-Reduce polling interval from 30s to 10s and initial delay from 5s to 2s. This gives the polling fallback a better chance of catching completed responses before the user navigates away:
-
-```text
-POLL_INTERVAL_MS: 30_000 -> 10_000
-Initial delay: 5_000 -> 2_000
-```
-
-### Step 4: Add Webhook Verification Bypass for Development (Code Fix)
 **File: `supabase/functions/openai-webhook/index.ts`**
 
-After signature verification fails, attempt a secondary verification using the raw secret (not base64-decoded) as a fallback. Some webhook secret formats from OpenAI use the raw string directly rather than base64. If both fail, continue to reject with 401.
+1. **Add `.trim()` to all secret processing paths** -- Apply `.trim()` immediately when the secret is first read from the environment variable, before any processing occurs. This single fix at the entry point covers both the base64 and raw fallback paths.
 
-This addresses the possibility that the secret format changed on OpenAI's side:
+2. **Enhance diagnostic logging** -- Log the decoded key byte length (not the secret itself) so future mismatches can be diagnosed instantly. A 32-byte decoded key confirms correct base64; anything else signals corruption.
 
-```typescript
-// Primary: Standard Webhooks spec (base64-decode after stripping whsec_)
-const secretBase64 = secret.replace('whsec_', '');
-const secretBytes = Uint8Array.from(atob(secretBase64), c => c.charCodeAt(0));
-// ... HMAC verification ...
+3. **Remove the raw-secret fallback** -- Once trimming is applied, the raw fallback becomes unnecessary complexity. OpenAI/Svix always uses base64-encoded secrets with the `whsec_` prefix. The fallback masks the real problem and adds code surface for no benefit. Remove it to simplify the verification path.
 
-// If primary fails, try raw bytes (some implementations use raw secret)
-if (!matched) {
-  const rawKey = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(secret.replace('whsec_', '')),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-  // ... compute and compare again ...
-}
+### Technical Details
+
+```text
+Before (broken):
+  secret = "whsec_abc123...XYZ=\n"  (trailing newline from paste)
+  secretBase64 = "abc123...XYZ=\n"
+  atob("abc123...XYZ=\n") -> wrong bytes -> wrong HMAC -> mismatch
+
+After (fixed):
+  secret = "whsec_abc123...XYZ="  (trimmed)
+  secretBase64 = "abc123...XYZ="
+  atob("abc123...XYZ=") -> correct 32 bytes -> correct HMAC -> match
 ```
 
-## Files Changed
+### Specific Edits
 
-| File | Change |
-|------|--------|
-| `src/hooks/usePendingResponseSubscription.ts` | Reduce poll interval to 10s, initial delay to 2s |
-| `supabase/functions/openai-webhook/index.ts` | Add secondary raw-secret HMAC verification fallback |
-| Database | Clean up orphaned pending responses |
+In the `serve()` handler where the secret is read (~line 148):
+- Change `Deno.env.get('OPENAI_WEBHOOK_SECRET')` to `Deno.env.get('OPENAI_WEBHOOK_SECRET')?.trim()`
 
-## What Stays the Same
-- All other edge functions unchanged
-- Webhook verification still required (not bypassed)
-- 10-minute client timeout unchanged
-- Realtime subscription logic unchanged
-- No schema changes
+In `verifyWebhookSignature` (~line 81):
+- Add `.trim()` to the secret processing: `const secretBase64 = secret.replace('whsec_', '').trim();`
+- Add a diagnostic log: `decodedKeyLength: secretBytes.length` to the mismatch error object
 
-## User Action Required
-The user must re-configure the `OPENAI_WEBHOOK_SECRET` by creating a new webhook endpoint in the OpenAI dashboard and updating the secret. Without this, the signature mismatch will persist regardless of code changes.
+Remove the raw-secret fallback block (~lines 106-131) entirely.
+
+### Risk Assessment
+
+- **Low risk**: `.trim()` is a safe, idempotent operation -- if no whitespace exists, behavior is unchanged
+- Removing the fallback simplifies the code and eliminates a misleading diagnostic path
+- No other files are modified
 
