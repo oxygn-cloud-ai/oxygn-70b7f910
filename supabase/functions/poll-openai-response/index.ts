@@ -49,7 +49,7 @@ function extractContent(output: OpenAIResponseOutput[] | undefined): { reasoning
     }
     if (item.type === 'message' && Array.isArray(item.content)) {
       for (const block of item.content) {
-        if (block.type === 'output_text' && typeof block.text === 'string') {
+        if ((block.type === 'output_text' || block.type === 'text') && typeof block.text === 'string') {
           outputText += block.text;
         }
       }
@@ -123,7 +123,7 @@ serve(async (req: Request): Promise<Response> => {
     // --- Ownership check: verify this pending response belongs to the caller ---
     const { data: pendingRow, error: pendingError } = await supabase
       .from('q_pending_responses')
-      .select('row_id, status, owner_id, prompt_row_id')
+      .select('row_id, status, owner_id, prompt_row_id, output_text')
       .eq('response_id', responseId)
       .maybeSingle();
 
@@ -153,7 +153,7 @@ serve(async (req: Request): Promise<Response> => {
     if (['completed', 'failed', 'cancelled', 'incomplete'].includes(pendingRow.status)) {
       console.log('[poll-openai-response] Already terminal:', pendingRow.status);
       return new Response(
-        JSON.stringify({ status: pendingRow.status, reasoning_text: null, output_text: null } satisfies PollResult),
+        JSON.stringify({ status: pendingRow.status, reasoning_text: null, output_text: pendingRow.output_text || null } satisfies PollResult),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

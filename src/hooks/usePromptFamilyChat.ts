@@ -182,6 +182,26 @@ export const usePromptFamilyChat = (promptRowId: string | null): UsePromptFamily
         source: 'WebhookCompletion',
         description: webhookOutput.slice(0, 100) + (webhookOutput.length > 100 ? '...' : ''),
       });
+    } else if (webhookComplete && !webhookOutput) {
+      // Completed but output missing — recover from thread history
+      processedWebhookRef.current = pendingId;
+      const threadId = threadManagerRef.current.activeThreadId;
+      if (threadId) {
+        (async () => {
+          try {
+            await messageManagerRef.current.fetchMessages(threadId);
+            // fetchMessages already calls setMessages internally
+          } catch (e) {
+            console.error('[PromptFamilyChat] Failed to recover messages from history:', e);
+          }
+        })();
+      }
+      streamManagerRef.current.resetStreamState();
+      clearPendingResponse();
+      notify.warning('Response recovered from history', {
+        source: 'WebhookCompletion',
+        description: 'Output was not captured directly. Messages loaded from conversation history.',
+      });
     } else if (webhookFailed) {
       // Reset states and show error via ref
       streamManagerRef.current.resetStreamState();
