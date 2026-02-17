@@ -131,7 +131,7 @@ function extractOutputText(output: WebhookPayload['data']['output']): string {
   for (const item of output || []) {
     if (item.type === 'message' && item.content) {
       for (const c of item.content) {
-        if (c.type === 'output_text' && c.text) {
+        if ((c.type === 'output_text' || c.type === 'text') && c.text) {
           text += c.text;
         }
       }
