@@ -181,14 +181,14 @@ Note: `q.parent.prompt.name` uses the IMMEDIATE parent, not the top-level root.
 
 **Manus task execution**: Creates task via edge function, then sets up Realtime subscription + 2s polling interval with 30-minute timeout. Waits for: completed | failed | cancelled | requires_input.
 
-**Background polling for child cascades**: When `executeChildCascade()` encounters a `long_running` interrupt (GPT-5 models), it waits via `waitForBackgroundResponse()` using a hybrid Realtime + polling strategy (mirroring `runManusTask` pattern):
+**Background polling for long_running prompts**: Both `executeCascade()` (top-level loop) and `executeChildCascade()` handle `long_running` interrupts from GPT-5 models via `waitForBackgroundResponse()`. When a prompt returns `interruptType === 'long_running'`, a toast is shown ("Background processing: ...") and execution blocks until the background response arrives. On success, `output_response` and `user_prompt_result` are updated in the DB and the cascade continues normally. `waitForBackgroundResponse()` uses a hybrid Realtime + polling strategy (mirroring `runManusTask` pattern):
 1. Realtime subscription on `q_pending_responses` for instant updates
 2. Database polling fallback (10-second intervals) to catch missed realtime events
 3. Edge function polling (`poll-openai-response`) as tertiary fallback
 4. Cancellation checks every 1 second
 5. 10-minute timeout with automatic cleanup of all timers/subscriptions
 
-This ensures recursive cascades block until actual AI responses complete rather than returning prematurely, with robust handling of realtime delivery failures.
+This ensures all cascade levels block until actual AI responses complete rather than returning prematurely, with robust handling of realtime delivery failures.
 
 **Action node handling**: Extract JSON from response → validate against schema → show preview dialog (unless `skip_preview`) → execute post-action → if `auto_run_children`:
 1. Wrap recursive cascade in `startCascade()`/`completeCascade()` lifecycle hooks
