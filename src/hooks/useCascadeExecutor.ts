@@ -969,6 +969,41 @@ export const useCascadeExecutor = () => {
                   return;
                 }
               }
+
+              // Handle GPT-5 background mode: wait for completion via polling/realtime
+              if (result?.interrupted && result.interruptType === 'long_running') {
+                const bgResponseId = result.interruptData?.responseId;
+                if (!bgResponseId) {
+                  console.error('executeCascade: No responseId in long_running interrupt data');
+                  result = { response: null };
+                } else {
+                  toast.info(`Background processing: ${prompt.prompt_name}`, {
+                    description: 'Waiting for GPT-5 to complete...',
+                    source: 'useCascadeExecutor',
+                  });
+
+                  const bgResult = await waitForBackgroundResponse(bgResponseId);
+
+                  if (bgResult.success && bgResult.response) {
+                    result = {
+                      response: bgResult.response,
+                      response_id: bgResult.response_id || bgResponseId,
+                    };
+
+                    // Update the prompt output in DB (same as executeChildCascade)
+                    await supabase
+                      .from(import.meta.env.VITE_PROMPTS_TBL)
+                      .update({
+                        output_response: bgResult.response,
+                        user_prompt_result: bgResult.response,
+                        updated_at: new Date().toISOString(),
+                      })
+                      .eq('row_id', prompt.row_id);
+                  } else {
+                    result = { response: null };
+                  }
+                }
+              }
               
               // If still interrupted after max attempts, treat as error
               if (result?.interrupted) {
