@@ -1,114 +1,83 @@
 
-## Fix: Chat Permanently Stuck After Background Completion
+## Fix: Main Cascade Missing Background Mode (long_running) Handler
 
 ### Root Cause
 
-Two independent bugs create a permanent stall condition in the conversation panel:
+The main `executeCascade` function in `useCascadeExecutor.ts` does not handle `long_running` interrupts from GPT-5 background mode. Only the `executeChildCascade` function (used for auto-run children) has this handler.
 
-**Bug A: `poll-openai-response` loses output text (Edge Function)**
-
-When the poll edge function detects a terminal status and writes it to the DB, but `extractContent` returns `null` for the output text (observed in 7/10 recent prompt-family-chat completions), the DB row gets `status: completed, output_text: NULL`.
-
-Additionally, on subsequent polls (line 152-159), if the DB row is already terminal, the function short-circuits and returns `{ status: 'completed', output_text: null }` without querying `output_text` from the DB or re-fetching from OpenAI. So even if the webhook later writes the output, the poll never returns it.
-
-The initial DB query at line 124-128 only selects `row_id, status, owner_id, prompt_row_id` — it does NOT select `output_text`. So the early-return path can never return the output.
-
-**Bug B: `usePromptFamilyChat.ts` has no fallback for completed-but-empty (Client)**
-
-The webhook completion effect (line 159) checks `webhookComplete && webhookOutput`. When `webhookOutput` is null (as per Bug A), neither the success path nor the failure path executes. The 10-minute timeout only triggers for `status: 'pending'`, so it never fires for `status: 'completed'`. The UI remains in `isWaitingForWebhook: true` permanently.
+**What happens:**
+1. GPT-5 triggers background mode, the SSE stream returns `{ interrupted: true, interruptType: 'long_running', interruptData: { responseId } }`
+2. The question handler loop (line 929) only checks for `interruptType === 'question'`, so it skips the `long_running` result
+3. The generic catch-all at line 974 (`if (result?.interrupted)`) fires and overwrites the result with `{ success: false, error: 'Max questions exceeded' }`
+4. Line 1001 checks `result?.response` which is now undefined, so it throws `"No response received"`
+5. This retries 3 times, fails each time the same way, and shows the error toast
 
 ### Fix
 
-**File: `supabase/functions/poll-openai-response/index.ts`**
+**File: `src/hooks/useCascadeExecutor.ts`**
 
-1. Change the initial DB query (line 124-128) to also select `output_text`:
-   ```
-   .select('row_id, status, owner_id, prompt_row_id, output_text')
-   ```
+Insert a `long_running` interrupt handler **between** the question loop (line 971) and the generic interrupted catch-all (line 974). This handler will:
 
-2. Fix the already-terminal early return (line 152-159) to include the output text from the DB:
-   ```
-   return { status: pendingRow.status, reasoning_text: null, output_text: pendingRow.output_text || null }
-   ```
+1. Extract the `responseId` from the interrupt data
+2. Call the existing `waitForBackgroundResponse` helper (already defined at line 1669 and used by `executeChildCascade`)
+3. Overwrite `result` with the background response, converting it to the same shape as a normal streaming result
+4. Update the prompt's `output_response` in the database (same as `executeChildCascade` does)
 
-3. Add a fallback when `extractContent` returns null for a completed response: re-fetch from OpenAI with `include` parameter or attempt to get text from any content block type (not just `output_text`). Specifically, also check for `block.type === 'text'` in case OpenAI uses a different content type for some response formats.
+The code to add (after line 971, before line 974):
 
-**File: `src/hooks/usePromptFamilyChat.ts`**
-
-4. Add a fallback in the webhook completion effect (after the existing `if (webhookComplete && webhookOutput)` block): handle `webhookComplete && !webhookOutput` as a "completed but output missing" case. In this case:
-   - Fetch messages from the thread history via `fetchMessages(threadId)` to recover the response from OpenAI's server-side state
-   - Reset the streaming/webhook state
-   - Show a warning toast indicating the response was recovered from history
-
-This ensures that even if the poll/webhook fails to write output_text, the chat recovers by pulling the conversation history directly.
-
-### Technical Details
-
-**`supabase/functions/poll-openai-response/index.ts`**
-
-Lines 124-128 (DB query):
 ```typescript
-// BEFORE:
-.select('row_id, status, owner_id, prompt_row_id')
+// Handle GPT-5 background mode: wait for completion via polling/realtime
+if (result?.interrupted && result.interruptType === 'long_running') {
+  const bgResponseId = result.interruptData?.responseId;
+  if (!bgResponseId) {
+    console.error('executeCascade: No responseId in long_running interrupt data');
+    result = { response: null };
+  } else {
+    toast.info(`Background processing: ${prompt.prompt_name}`, {
+      description: 'Waiting for GPT-5 to complete...',
+      source: 'useCascadeExecutor',
+    });
 
-// AFTER:
-.select('row_id, status, owner_id, prompt_row_id, output_text')
-```
+    const bgResult = await waitForBackgroundResponse(bgResponseId);
 
-Lines 152-159 (early return):
-```typescript
-// BEFORE:
-return { status: pendingRow.status, reasoning_text: null, output_text: null }
+    if (bgResult.success && bgResult.response) {
+      result = {
+        response: bgResult.response,
+        response_id: bgResult.response_id || bgResponseId,
+      };
 
-// AFTER:
-return { status: pendingRow.status, reasoning_text: null, output_text: pendingRow.output_text || null }
-```
-
-Lines 42-62 (`extractContent`): Add fallback for `block.type === 'text'`:
-```typescript
-if (item.type === 'message' && Array.isArray(item.content)) {
-  for (const block of item.content) {
-    if ((block.type === 'output_text' || block.type === 'text') && typeof block.text === 'string') {
-      outputText += block.text;
+      // Update the prompt output in DB (same as executeChildCascade)
+      await supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .update({
+          output_response: bgResult.response,
+          user_prompt_result: bgResult.response,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('row_id', prompt.row_id);
+    } else {
+      result = { response: null };
     }
   }
 }
 ```
 
-**`src/hooks/usePromptFamilyChat.ts`**
+### Additional Fix: Webhook Signature Failure
 
-Lines 159-194 (webhook effect): Add fallback after the existing success condition:
-```typescript
-if (webhookComplete && webhookOutput) {
-  // ... existing success handling ...
-} else if (webhookComplete && !webhookOutput) {
-  // Completed but output missing - recover from thread history
-  processedWebhookRef.current = pendingId;
-  const threadId = threadManagerRef.current.activeThreadId;
-  if (threadId) {
-    try {
-      const freshMessages = await messageManagerRef.current.fetchMessages(threadId);
-      // fetchMessages already calls setMessages internally
-    } catch (e) {
-      console.error('[PromptFamilyChat] Failed to recover messages from history:', e);
-    }
-  }
-  streamManagerRef.current.resetStreamState();
-  clearPendingResponse();
-  notify.warning('Response recovered from history', {
-    source: 'WebhookCompletion',
-    description: 'Output was not captured directly. Messages loaded from conversation history.',
-  });
-} else if (webhookFailed) {
-  // ... existing failure handling ...
-}
-```
+The webhook logs show persistent signature verification failures. Every webhook from OpenAI is returning 401. This means:
+- The `OPENAI_WEBHOOK_SECRET` stored in Supabase secrets does not match the signing secret configured in the OpenAI dashboard
+- All webhook deliveries are being rejected
+- The system is entirely dependent on polling fallback
 
-Note: `fetchMessages` is async, so the effect will need to handle this. Since React effects cannot be async directly, the async call should be wrapped in an immediately-invoked async function.
+This is a configuration issue, not a code issue. You need to:
+1. Go to your OpenAI dashboard webhook settings
+2. Copy the **exact** webhook signing secret (starts with `whsec_`)
+3. Update the `OPENAI_WEBHOOK_SECRET` in your backend secrets to match
+
+Until the webhook secret is fixed, all background completions rely on polling, which works but is slower.
 
 ### Scope
 
-- `supabase/functions/poll-openai-response/index.ts` — 3 changes
-- `src/hooks/usePromptFamilyChat.ts` — 1 change (webhook effect fallback)
+- `src/hooks/useCascadeExecutor.ts` -- 1 change (add ~25 lines after line 971)
 - No database changes
-- No other files modified
+- No edge function changes needed (polling fallback already works)
