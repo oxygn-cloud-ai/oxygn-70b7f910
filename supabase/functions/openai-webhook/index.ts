@@ -216,7 +216,7 @@ serve(async (req) => {
       // Extract output directly from webhook payload (no API call needed)
       const outputText = extractOutputText(data.output);
       
-      if (!outputText && type === 'response.completed') {
+      if (!outputText) {
         console.warn('[openai-webhook] [DIAG] Empty output extraction for completed response:', {
           responseId,
           outputItemCount: data.output?.length ?? 0,
