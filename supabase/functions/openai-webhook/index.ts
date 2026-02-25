@@ -216,6 +216,16 @@ serve(async (req) => {
       // Extract output directly from webhook payload (no API call needed)
       const outputText = extractOutputText(data.output);
       
+      if (!outputText && type === 'response.completed') {
+        console.warn('[openai-webhook] [DIAG] Empty output extraction for completed response:', {
+          responseId,
+          outputItemCount: data.output?.length ?? 0,
+          outputTypes: data.output?.map((item: { type: string }) => item.type) ?? [],
+          firstItemKeys: data.output?.[0] ? Object.keys(data.output[0]) : [],
+          rawOutputPreview: JSON.stringify(data.output)?.substring(0, 500),
+        });
+      }
+      
       // PHASE 1 FIX: Update pending response with error handling
       const { error: pendingUpdateError } = await supabase.from('q_pending_responses')
         .update({

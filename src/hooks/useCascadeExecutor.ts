@@ -978,13 +978,13 @@ export const useCascadeExecutor = () => {
                   result = { response: null };
                 } else {
                   toast.info(`Background processing: ${prompt.prompt_name}`, {
-                    description: 'Waiting for GPT-5 to complete...',
+                    description: 'Waiting for background processing to complete...',
                     source: 'useCascadeExecutor',
                   });
 
-                  const bgResult = await waitForBackgroundResponse(bgResponseId);
+                  const bgResult: BackgroundWaitResult = await waitForBackgroundResponse(bgResponseId);
 
-                  if (bgResult.success && bgResult.response) {
+                  if (bgResult.success && bgResult.response != null) {
                     result = {
                       response: bgResult.response,
                       response_id: bgResult.response_id || bgResponseId,
@@ -1000,7 +1000,23 @@ export const useCascadeExecutor = () => {
                       })
                       .eq('row_id', prompt.row_id);
                   } else {
-                    result = { response: null };
+                    // Fallback: check if webhook/poll already updated the prompt directly
+                    const { data: freshPrompt } = await supabase
+                      .from(import.meta.env.VITE_PROMPTS_TBL)
+                      .select('output_response')
+                      .eq('row_id', prompt.row_id)
+                      .maybeSingle();
+
+                    if (freshPrompt?.output_response != null && freshPrompt.output_response !== '') {
+                      console.log('executeCascade: Recovered response from prompt DB fallback');
+                      result = {
+                        response: freshPrompt.output_response,
+                        response_id: bgResponseId,
+                      };
+                    } else {
+                      console.error('executeCascade: Background response failed and no DB fallback available');
+                      result = { response: null };
+                    }
                   }
                 }
               }
@@ -1692,26 +1708,27 @@ export const useCascadeExecutor = () => {
     * @returns {Promise<{ success: boolean, results: Array, depthLimitReached?: boolean }>}
     */
 
+  interface BackgroundWaitResult {
+    response: string | null;
+    success: boolean;
+    response_id?: string;
+  }
+
   /**
    * Wait for a background (GPT-5) response via Realtime subscription + polling fallback.
    * Mirrors the proven pattern from runManusTask (line 177).
-   *
-   * @param {string} responseId - The response_id in q_pending_responses
-   * @param {number} [timeoutMs=600000] - Maximum wait time (default 10 minutes)
-   * @param {number} [pollIntervalMs=10000] - Polling interval (default 10 seconds)
-   * @returns {Promise<{ response: string | null; success: boolean; response_id?: string }>}
    */
   const waitForBackgroundResponse = async (
-    responseId,
-    timeoutMs = 600_000,
-    pollIntervalMs = 10_000
-  ) => {
-    return new Promise((resolve) => {
+    responseId: string,
+    timeoutMs: number = 600_000,
+    pollIntervalMs: number = 10_000
+  ): Promise<BackgroundWaitResult> => {
+    return new Promise<BackgroundWaitResult>((resolve) => {
       let resolved = false;
-      let subscription = null;
-      let pollTimer = null;
-      let cancelCheckTimer = null;
-      let timeoutTimer = null;
+      let subscription: ReturnType<typeof supabaseClient.channel> | null = null;
+      let pollTimer: ReturnType<typeof setInterval> | null = null;
+      let cancelCheckTimer: ReturnType<typeof setInterval> | null = null;
+      let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
 
       const cleanup = () => {
         if (subscription) {
@@ -1753,8 +1770,8 @@ export const useCascadeExecutor = () => {
           (payload) => {
             const row = payload.new;
             console.log(`[waitForBg] Realtime event for ${responseId}: status=${row?.status}`);
-            if (row?.status === 'completed' && row?.output_text) {
-              finish({ response: row.output_text, success: true, response_id: responseId });
+            if (row?.status === 'completed') {
+              finish({ response: row.output_text ?? '', success: true, response_id: responseId });
             } else if (row && ['failed', 'cancelled', 'incomplete'].includes(row.status)) {
               console.error(`[waitForBg] Realtime: terminal status ${row.status} for ${responseId}`, row.error);
               finish({ response: null, success: false });
@@ -1778,9 +1795,9 @@ export const useCascadeExecutor = () => {
 
           if (dbError) {
             console.warn(`[waitForBg] DB poll error for ${responseId}:`, dbError.message);
-          } else if (data?.status === 'completed' && data?.output_text) {
+          } else if (data?.status === 'completed') {
             console.log(`[waitForBg] DB poll: completed for ${responseId}`);
-            finish({ response: data.output_text, success: true, response_id: responseId });
+            finish({ response: data.output_text ?? '', success: true, response_id: responseId });
             return;
           } else if (data && ['failed', 'cancelled', 'incomplete'].includes(data.status)) {
             console.log(`[waitForBg] DB poll: terminal ${data.status} for ${responseId}`);
@@ -1796,9 +1813,9 @@ export const useCascadeExecutor = () => {
 
           if (pollError) {
             console.warn(`[waitForBg] Edge poll error for ${responseId}:`, pollError.message);
-          } else if (pollData?.status === 'completed' && pollData?.output_text) {
+          } else if (pollData?.status === 'completed') {
             console.log(`[waitForBg] Edge poll: completed for ${responseId}`);
-            finish({ response: pollData.output_text, success: true, response_id: responseId });
+            finish({ response: pollData.output_text ?? '', success: true, response_id: responseId });
           }
         } catch (e) {
           console.warn(`[waitForBg] Poll exception for ${responseId}:`, e);
