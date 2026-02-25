@@ -188,6 +188,15 @@ serve(async (req: Request): Promise<Response> => {
     const openaiData: OpenAIResponse = await openaiResponse.json();
     const { reasoning, outputText } = extractContent(openaiData.output);
 
+    if (!outputText && openaiData.status === 'completed') {
+      console.warn('[poll-openai-response] [DIAG] Empty output extraction for completed response:', {
+        responseId,
+        outputItemCount: openaiData.output?.length ?? 0,
+        outputTypes: openaiData.output?.map((item: OpenAIResponseOutput) => item.type) ?? [],
+        rawOutputPreview: JSON.stringify(openaiData.output)?.substring(0, 500),
+      });
+    }
+
     console.log('[poll-openai-response] Status:', openaiData.status, '| reasoning:', !!reasoning, '| output:', !!outputText);
 
     // --- If terminal, update DB as webhook fallback ---
