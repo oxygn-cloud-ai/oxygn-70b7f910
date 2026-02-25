@@ -8,8 +8,6 @@
 
 1. `src/hooks/useCascadeExecutor.ts`
 2. `supabase/functions/openai-webhook/index.ts`
-3. `supabase/functions/poll-openai-response/index.ts`
-4. `CLAUDE.md`
 
 ---
 
@@ -17,73 +15,35 @@
 
 #### 1. `src/hooks/useCascadeExecutor.ts`
 
-**Description of changes:**
-- Added `BackgroundWaitResult` interface (line 1711-1715)
-- Typed `waitForBackgroundResponse` signature (line 1721-1726)
-- Relaxed `completed` checks to accept empty `output_text` (lines 1773-1774, 1798-1800, 1816-1818)
-- Updated `long_running` handler in `executeCascade` with `!= null` check and DB fallback (lines 973-1021)
-- Updated toast message to be model-agnostic (line 981)
+**Description of changes (remediation steps 1-5):**
+- Step 1: Typed `finish` callback parameter as `BackgroundWaitResult` (line 1757) ✅
+- Step 2: Fixed `executeChildCascade` success check to `result?.response != null` (line 2075) ✅
+- Step 3: Fixed `executeChildCascade` DB update guard to `result?.response != null` (line 2100) ✅
+- Step 4: Added DB fallback to `executeChildCascade` background handler (lines 2042-2067) ✅
+- Step 5: Wrapped `executeCascade` `long_running` handler body in try-catch (lines 980-1025) ✅
 
 **Verification status:** ❌ Bug Found
 
 **Issues identified:**
 
-1. **BUG — `finish` function is untyped (line 1752).** The plan required strict TypeScript typing. The `finish` callback parameter `result` has no type annotation: `const finish = (result) => {`. This is implicitly `any`, violating the strict type safety requirement. It should be `const finish = (result: BackgroundWaitResult) => {`.
+1. **BUG — Parent `executeCascade` main success gate still uses falsy check (line 1057).** After the `long_running` handler sets `result = { response: '' }` (empty string from a completed-but-empty-text background response), execution proceeds to line 1057: `if (result?.response)`. Empty string is **falsy**. This skips the entire success path: `markPromptComplete` is never called, the response is not added to `accumulatedResponses`, the prompt is not stored in `promptDataMap` (breaking `q.ref[UUID]` resolution for subsequent prompts), and the span is not completed. Execution falls through to the error/failure handling. **This is the same class of falsy bug that was remediated in `executeChildCascade` but was missed in the parent cascade.** This bug was NOT identified in any prior audit and was NOT in the remediation plan scope, but it renders the entire fix chain ineffective for the parent cascade path.
 
-2. **BUG — `executeChildCascade` falsy check NOT fixed (line 2051).** The plan's Finding 2 explicitly identified that `executeChildCascade` at line 2051 uses `success: !!result?.response` which treats empty string as failure. The revised plan stated: "Line 2034 should use `result?.response != null` for consistency." This was not implemented. The same bug also exists at line 2076: `if (result?.response)` — empty string skips the DB update for child cascades.
+2. **BUG — Child cascade `completeSpan` status uses falsy check (line 2085).** `status: result?.response ? 'success' : 'failed'` — empty string evaluates to `'failed'`. The span will be recorded as failed even though the response was successfully received. This was not identified in any prior audit.
 
-3. **BUG — `executeChildCascade` long_running handler NOT fixed (lines 2037-2043).** The child cascade's background handler at line 2037 calls `waitForBackgroundResponse` but does NOT use the `BackgroundWaitResult` type annotation on the variable. `const bgResult = await waitForBackgroundResponse(bgResponseId);` — this works due to inference but is inconsistent with the explicit typing at line 985 in `executeCascade`. More critically, the child handler has no DB fallback (unlike the parent handler at lines 1003-1019), meaning child cascades will still fail silently when `waitForBackgroundResponse` returns `{ response: null, success: false }`.
+3. **WARNING — `executeChildCascade` missing try-catch around background handler (lines 2037-2068).** The parent `executeCascade` long_running handler was wrapped in try-catch (Step 5). The child cascade's equivalent handler at lines 2037-2068 has no try-catch. If `waitForBackgroundResponse` or the DB fallback query throws, the exception propagates uncaught through `executeChildCascade`, which will crash the entire child cascade run. This is inconsistent with the parent handler's error isolation pattern.
 
-4. **DEFECT — Generic catch-all at line 1025 can still overwrite valid `long_running` result.** After the `long_running` handler sets `result = { response: null }` at line 1018 (fallback failure path), the code falls through to line 1025: `if (result?.interrupted)`. Since `result` was reassigned to `{ response: null }` (no `interrupted` property), this specific path is safe. However, if the `long_running` handler throws an unhandled exception, `result` retains its original `{ interrupted: true, interruptType: 'long_running' }` value, and the catch-all at 1025 would overwrite it with `{ success: false, error: 'Max questions exceeded' }` — an incorrect error message for a background mode failure. The `long_running` handler has no try-catch.
-
-5. **WARNING — No cancellation check during background wait DB fallback.** Lines 1003-1019 perform a DB query after `waitForBackgroundResponse` fails/times out. If the user cancelled the cascade during the 10-minute wait, this fallback still executes and may update the prompt DB unnecessarily. The cancellation check only happens later at the outer loop level.
-
-**Risk level:** High
+**Risk level:** Critical (Bug #1 blocks the primary use case)
 
 ---
 
 #### 2. `supabase/functions/openai-webhook/index.ts`
 
-**Description of changes:**
-- Added `[DIAG]` diagnostic logging after `extractOutputText` call (lines 219-227)
-
-**Verification status:** ⚠️ Warning
-
-**Issues identified:**
-
-1. **DEFECT — Redundant condition.** Line 219: `if (!outputText && type === 'response.completed')`. This code is inside `case 'response.completed':` (line 215), so `type === 'response.completed'` is always true. The check is harmless but indicates the implementation was not reviewed for context.
-
-**Risk level:** Low
-
----
-
-#### 3. `supabase/functions/poll-openai-response/index.ts`
-
-**Description of changes:**
-- Added `[DIAG]` diagnostic logging after `extractContent` call (lines 191-198)
-
-**Verification status:** ⚠️ Warning
-
-**Issues identified:**
-
-1. **Verified:** `responseId` variable is in scope (declared at line 114 as `const responseId: unknown = body?.response_id`, narrowed to `string` by the guard at line 116). The diagnostic log at line 193 correctly references it. However, the TypeScript type at that point is `unknown` even though the guard narrows it. The `.map()` call inside the log uses the typed `OpenAIResponseOutput` — correct.
-
-2. **NOTE — Pre-existing diagnostic log duplication.** The original code already had a nearly identical diagnostic block at lines 200 (the `console.log` for status). The new `[DIAG]` block (lines 191-198) adds more detail but the structure overlaps with the pre-existing block that was already in the file before this implementation. This is not a bug but worth noting.
-
-**Risk level:** Low
-
----
-
-#### 4. `CLAUDE.md`
-
-**Description of changes:**
-- Extended line 191 to document that background wait results never include usage/token data and that `poll-openai-response` acts as a synthetic webhook
-- Added `openai-webhook` idempotency note at line 378
-- Added `poll-openai-response` documentation entry at line 407
+**Description of changes (remediation step 6):**
+- Removed redundant `type === 'response.completed'` condition from diagnostic log (line 219)
 
 **Verification status:** ✅ Correct
 
-**Issues identified:** None. Documentation accurately reflects the implemented behaviour.
+The condition now reads `if (!outputText)` inside `case 'response.completed':`. This is correct — the redundant check was removed as specified.
 
 **Risk level:** Low
 
@@ -91,124 +51,78 @@
 
 ### Bugs Found
 
-1. **`src/hooks/useCascadeExecutor.ts`, line 1752:** `finish` callback parameter `result` is untyped (`any`). Plan required `BackgroundWaitResult` type annotation.
+1. **`src/hooks/useCascadeExecutor.ts`, line 1057:** `if (result?.response)` in parent `executeCascade` treats empty string as failure. When the `long_running` handler at line 988-992 produces `result = { response: '' }`, this gate fails and the entire success path (markPromptComplete, accumulatedResponses, promptDataMap, span completion) is skipped. The prompt is effectively treated as failed despite the background response completing successfully.
 
-2. **`src/hooks/useCascadeExecutor.ts`, line 2051:** `success: !!result?.response` in `executeChildCascade` treats empty string as failure. Plan Finding 2 required this to be `result?.response != null`. Not implemented.
-
-3. **`src/hooks/useCascadeExecutor.ts`, line 2076:** `if (result?.response)` in `executeChildCascade` skips DB update for empty-string responses. Same falsy bug as #2.
-
-4. **`src/hooks/useCascadeExecutor.ts`, lines 2037-2043:** `executeChildCascade` background handler lacks DB fallback that was added to `executeCascade` (lines 1003-1019). Child cascades with empty background responses will silently fail.
-
-5. **`src/hooks/useCascadeExecutor.ts`, lines 973-1021:** No try-catch around the `long_running` handler body. If `waitForBackgroundResponse` or the DB fallback throws, the generic catch-all at line 1025 produces the misleading error "Max questions exceeded".
-
-6. **`supabase/functions/openai-webhook/index.ts`, line 219:** Redundant `type === 'response.completed'` check inside `case 'response.completed':` block.
+2. **`src/hooks/useCascadeExecutor.ts`, line 2085:** `status: result?.response ? 'success' : 'failed'` in child `completeSpan` call treats empty string response as `'failed'`. Should be `result?.response != null ? 'success' : 'failed'`.
 
 ---
 
 ### Critical Risks
 
-1. **HIGH — Child cascade background mode still broken.** Bug #2/#3/#4 mean that `executeChildCascade` has the same class of bugs that were fixed in `executeCascade`. Any child prompt using GPT-5 background mode that returns an empty `output_text` will be marked as failed, skip DB update, and cascade will continue with incorrect state. This is the same failure mode the user reported, just in a different code path.
+1. **CRITICAL — Parent cascade success path unreachable for empty-string background responses (Bug #1).** The remediation fixed the `long_running` handler's internal condition (line 988) and the child cascade's success check (line 2075), but the parent cascade's primary success gate at line 1057 was never touched. This means GPT-5 background responses that complete with empty `output_text` (the exact failure mode being fixed) will STILL fail in the parent cascade. The entire chain of fixes (relaxed completion checks, DB fallback, try-catch) successfully produces `result = { response: '' }`, which is then immediately discarded at line 1057. **Severity: Critical. Remediation: Change line 1057 to `if (result?.response != null)`.**
 
-2. **MEDIUM — Missing exception handling in long_running handler.** If the Supabase query at line 1004 throws (network error, auth expiry), the error propagates uncaught through the question loop, hits the generic catch-all at line 1025, and produces the misleading "Max questions exceeded" error rather than a background-mode-specific error.
+2. **MEDIUM — Child cascade background handler lacks exception isolation.** If `waitForBackgroundResponse` throws in child context, it crashes the child cascade loop without producing an error result. **Severity: Medium. Remediation: Wrap lines 2038-2068 in try-catch matching the parent pattern.**
 
 ---
 
 ### Unintended Changes
 
-None detected. All changes are within the scope of the approved plan's 3 files plus CLAUDE.md documentation.
+None detected. All modifications are within the scope of the approved remediation plan (Steps 1-6). No files outside the 2-file scope were modified.
 
 ---
 
 ### Omissions
 
-1. **Plan Change 2 (child cascade consistency):** The revised plan explicitly stated in Finding 2: "Line 2034 should use `result?.response != null` for consistency." This was not implemented. The `executeChildCascade` path was not modified at all.
+1. **Parent cascade success gate (line 1057):** The remediation plan did not identify or address this falsy check. It was outside the plan scope (which focused on the `long_running` handler and `executeChildCascade`), but it is the next gate in the same execution path and renders the fix ineffective.
 
-2. **Plan Change 1 (type safety):** The `finish` function's `result` parameter was not typed. The plan required `BackgroundWaitResult` type on all relevant variables.
+2. **Child cascade try-catch (lines 2037-2068):** The remediation plan specified try-catch wrapping for the parent handler (Step 5) but did not specify it for the child handler, despite both handlers performing the same operations with the same failure modes.
 
-3. **No try-catch:** The plan did not specify exception handling for the `long_running` block, but the adversarial audit standard requires identifying this as an omission given the misleading error message it produces.
+3. **Child span status falsy check (line 2085):** Not identified in the remediation plan.
 
 ---
 
 ### Architectural Deviations
 
-None detected. All changes use existing patterns (Supabase client, toast, existing helper functions).
+None detected. All changes use existing patterns and conventions.
 
 ---
 
 ### Summary
 
-The implementation correctly addresses the primary `executeCascade` path: the `long_running` handler, relaxed completion checks, `!= null` condition, DB fallback, and diagnostic logging are all correctly implemented for the parent cascade.
+The 6 remediation steps from the previous audit were all correctly implemented. However, the remediation plan itself had an omission: it did not identify the parent cascade's main success gate at line 1057, which uses the same falsy check pattern (`if (result?.response)`) that was fixed elsewhere. This gate sits directly downstream of the `long_running` handler, meaning the fix produces a correct `result = { response: '' }` that is immediately discarded.
 
-However, the `executeChildCascade` path was left untouched despite the plan explicitly calling out the same bugs there (Finding 2). This means child cascades using GPT-5 background mode remain broken with the identical failure pattern. The `finish` function also lacks the required type annotation.
-
-**Recommendation: Progression is BLOCKED** until bugs #1-#5 are remediated.
+**Recommendation: Progression is BLOCKED** until Bug #1 (line 1057) is remediated. Bug #2 (line 2085) and the missing child try-catch should be addressed simultaneously.
 
 ---
 
 ### Remediation Plan
 
-**File: `src/hooks/useCascadeExecutor.ts`** — 4 changes
+**File: `src/hooks/useCascadeExecutor.ts`** — 3 changes
 
-**Step 1:** Type the `finish` callback parameter (line 1752):
-```typescript
-const finish = (result: BackgroundWaitResult) => {
-```
-
-**Step 2:** Fix `executeChildCascade` success check (line 2051):
-```typescript
-success: result?.response != null,
-```
-
-**Step 3:** Fix `executeChildCascade` DB update guard (line 2076):
+**Step 1:** Fix parent cascade success gate (line 1057):
 ```typescript
 if (result?.response != null) {
 ```
 
-**Step 4:** Add DB fallback to `executeChildCascade` background handler (replace lines 2039-2043):
+**Step 2:** Fix child cascade `completeSpan` status check (line 2085):
 ```typescript
-              const bgResult: BackgroundWaitResult = await waitForBackgroundResponse(bgResponseId);
-
-              if (bgResult.success && bgResult.response != null) {
-                result = {
-                  response: bgResult.response,
-                  response_id: bgResult.response_id || bgResponseId,
-                };
-              } else {
-                // Fallback: check if webhook/poll already updated the prompt directly
-                const { data: freshChild } = await supabaseClient
-                  .from(import.meta.env.VITE_PROMPTS_TBL)
-                  .select('output_response')
-                  .eq('row_id', childPrompt.row_id)
-                  .maybeSingle();
-
-                if (freshChild?.output_response != null && freshChild.output_response !== '') {
-                  console.log('executeChildCascade: Recovered response from prompt DB fallback');
-                  result = {
-                    response: freshChild.output_response,
-                    response_id: bgResponseId,
-                  };
-                } else {
-                  console.error('executeChildCascade: Background response failed and no DB fallback available');
-                  result = { response: null };
-                }
-              }
+status: result?.response != null ? 'success' : 'failed',
 ```
 
-**Step 5:** Wrap the `long_running` handler body in try-catch (lines 979-1021 in `executeCascade`):
+**Step 3:** Wrap child cascade background handler in try-catch (lines 2037-2068). Replace the `else` block:
 ```typescript
 } else {
   try {
-    toast.info(...);
+    console.log(`executeChildCascade: Child ${childPrompt.prompt_name} went to background mode (${bgResponseId}), waiting...`);
+    toast.info(`Waiting for background response: ${childPrompt.prompt_name}`);
     const bgResult: BackgroundWaitResult = await waitForBackgroundResponse(bgResponseId);
-    // ... existing logic ...
-  } catch (bgError) {
-    console.error('executeCascade: Background wait error:', bgError);
+    // ... existing fallback logic unchanged ...
+  } catch (bgError: unknown) {
+    console.error('executeChildCascade: Background wait error:', bgError);
     result = { response: null };
   }
 }
 ```
 
-**Step 6 (optional):** Remove redundant `type === 'response.completed'` from `openai-webhook/index.ts` line 219. Change to `if (!outputText) {`.
-
-**No database, edge function logic, or architectural changes required.**
+No other files require changes. No database, edge function, or architectural changes required.
 
