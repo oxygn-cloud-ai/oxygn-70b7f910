@@ -188,7 +188,7 @@ Note: `q.parent.prompt.name` uses the IMMEDIATE parent, not the top-level root.
 4. Cancellation checks every 1 second
 5. 10-minute timeout with automatic cleanup of all timers/subscriptions
 
-This ensures all cascade levels block until actual AI responses complete rather than returning prematurely, with robust handling of realtime delivery failures.
+This ensures all cascade levels block until actual AI responses complete rather than returning prematurely, with robust handling of realtime delivery failures. Background wait results never include usage/token data (unlike streaming results). `poll-openai-response` also acts as a synthetic webhook: if it detects terminal status but the DB record is still pending (webhook missed), it updates `q_pending_responses` directly, with `reasoning_text` extracted separately for extended thinking models.
 
 **Action node handling**: Extract JSON from response → validate against schema → show preview dialog (unless `skip_preview`) → execute post-action → if `auto_run_children`:
 1. Wrap recursive cascade in `startCascade()`/`completeCascade()` lifecycle hooks
@@ -375,7 +375,7 @@ All require JWT except where noted:
 - `execution-manager` - Manages execution traces and spans with rate limiting
 
 **Webhooks (no JWT):**
-- `openai-webhook` - Receives OpenAI async completions
+- `openai-webhook` - Receives OpenAI async completions; idempotent via `webhook_event_id` (safe to retry)
 - `manus-webhook` - Manus task updates
 - `prompt-versions` - Version control for prompts (commit, rollback, history)
 
@@ -404,6 +404,7 @@ All require JWT except where noted:
 **Utilities:**
 - `github-release` - GitHub release management
 - `test-openai-delete` - Test function for OpenAI DELETE API
+- `poll-openai-response` - Polls OpenAI for background response status; extracts `output_text` and `reasoning_text` (extended thinking); updates `q_pending_responses` directly if webhook failed to deliver (synthetic webhook fallback)
 - `_shared/` - Shared utility modules used across functions
 
 ### Edge Function Developer Guide
