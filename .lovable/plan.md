@@ -7,7 +7,8 @@
 ### Files Changed
 
 1. `src/hooks/useCascadeExecutor.ts`
-2. `supabase/functions/openai-webhook/index.ts`
+
+(Only one file was modified in the last diff. `supabase/functions/openai-webhook/index.ts` was modified in a prior iteration and was NOT part of this most recent implementation.)
 
 ---
 
@@ -15,35 +16,36 @@
 
 #### 1. `src/hooks/useCascadeExecutor.ts`
 
-**Description of changes (remediation steps 1-5):**
-- Step 1: Typed `finish` callback parameter as `BackgroundWaitResult` (line 1757) ✅
-- Step 2: Fixed `executeChildCascade` success check to `result?.response != null` (line 2075) ✅
-- Step 3: Fixed `executeChildCascade` DB update guard to `result?.response != null` (line 2100) ✅
-- Step 4: Added DB fallback to `executeChildCascade` background handler (lines 2042-2067) ✅
-- Step 5: Wrapped `executeCascade` `long_running` handler body in try-catch (lines 980-1025) ✅
-
-**Verification status:** ❌ Bug Found
-
-**Issues identified:**
-
-1. **BUG — Parent `executeCascade` main success gate still uses falsy check (line 1057).** After the `long_running` handler sets `result = { response: '' }` (empty string from a completed-but-empty-text background response), execution proceeds to line 1057: `if (result?.response)`. Empty string is **falsy**. This skips the entire success path: `markPromptComplete` is never called, the response is not added to `accumulatedResponses`, the prompt is not stored in `promptDataMap` (breaking `q.ref[UUID]` resolution for subsequent prompts), and the span is not completed. Execution falls through to the error/failure handling. **This is the same class of falsy bug that was remediated in `executeChildCascade` but was missed in the parent cascade.** This bug was NOT identified in any prior audit and was NOT in the remediation plan scope, but it renders the entire fix chain ineffective for the parent cascade path.
-
-2. **BUG — Child cascade `completeSpan` status uses falsy check (line 2085).** `status: result?.response ? 'success' : 'failed'` — empty string evaluates to `'failed'`. The span will be recorded as failed even though the response was successfully received. This was not identified in any prior audit.
-
-3. **WARNING — `executeChildCascade` missing try-catch around background handler (lines 2037-2068).** The parent `executeCascade` long_running handler was wrapped in try-catch (Step 5). The child cascade's equivalent handler at lines 2037-2068 has no try-catch. If `waitForBackgroundResponse` or the DB fallback query throws, the exception propagates uncaught through `executeChildCascade`, which will crash the entire child cascade run. This is inconsistent with the parent handler's error isolation pattern.
-
-**Risk level:** Critical (Bug #1 blocks the primary use case)
-
----
-
-#### 2. `supabase/functions/openai-webhook/index.ts`
-
-**Description of changes (remediation step 6):**
-- Removed redundant `type === 'response.completed'` condition from diagnostic log (line 219)
+**Description of changes (remediation steps 1-3):**
+- Step 1: Changed parent cascade success gate at line 1057 from `if (result?.response)` to `if (result?.response != null)` ✅
+- Step 2: Changed child cascade `completeSpan` status check at line 2090 from `result?.response ? 'success' : 'failed'` to `result?.response != null ? 'success' : 'failed'` ✅
+- Step 3: Wrapped child cascade background handler (lines 2038-2072) in try-catch with `catch (bgError: unknown)` ✅
 
 **Verification status:** ✅ Correct
 
-The condition now reads `if (!outputText)` inside `case 'response.completed':`. This is correct — the redundant check was removed as specified.
+**Detailed verification:**
+
+1. **Line 1057 — Parent success gate.** Confirmed: `if (result?.response != null)` correctly evaluates to `true` for empty string `''` and `false` only for `null` or `undefined`. This matches the approved plan exactly. Downstream operations (`markPromptComplete`, `accumulatedResponses`, `promptDataMap`, span completion) are now reachable for empty-string background responses.
+
+2. **Line 2090 — Child span status.** Confirmed: `result?.response != null ? 'success' : 'failed'` correctly maps empty string to `'success'`. Matches approved plan.
+
+3. **Lines 2038-2072 — Child try-catch.** Confirmed: The entire background handler body (log, toast, `waitForBackgroundResponse`, success check, DB fallback) is wrapped in `try { ... } catch (bgError: unknown) { ... result = { response: null }; }`. This matches the parent handler pattern at lines 980-1025. The `catch` sets `result = { response: null }` which will be correctly evaluated as failure by the `!= null` check at line 2080.
+
+4. **Line 2080 — Child success check.** Confirmed pre-existing from prior remediation: `success: result?.response != null`. Consistent.
+
+5. **Line 2105 — Child DB update guard.** Confirmed pre-existing from prior remediation: `if (result?.response != null)`. Consistent.
+
+6. **Edge cases verified:**
+   - `result = { response: '' }` → line 1057 passes ✅, line 2080 `success: true` ✅, line 2090 `'success'` ✅, line 2105 DB update executes ✅
+   - `result = { response: null }` → line 1057 fails ✅, line 2080 `success: false` ✅, line 2090 `'failed'` ✅, line 2105 DB update skipped ✅
+   - `result = undefined` → `result?.response` is `undefined`, `!= null` is `false` ✅
+   - Background handler throws → caught, `result = { response: null }`, falls through correctly ✅
+
+7. **No syntax errors, no undefined variables, no missing imports.** All changes are condition modifications and a try-catch wrapper — no new identifiers introduced.
+
+8. **No race conditions introduced.** The try-catch wraps sequential `await` calls with no parallel execution.
+
+9. **No resource leaks.** The try-catch does not introduce or suppress any subscription or timer cleanup issues.
 
 **Risk level:** Low
 
@@ -51,78 +53,49 @@ The condition now reads `if (!outputText)` inside `case 'response.completed':`. 
 
 ### Bugs Found
 
-1. **`src/hooks/useCascadeExecutor.ts`, line 1057:** `if (result?.response)` in parent `executeCascade` treats empty string as failure. When the `long_running` handler at line 988-992 produces `result = { response: '' }`, this gate fails and the entire success path (markPromptComplete, accumulatedResponses, promptDataMap, span completion) is skipped. The prompt is effectively treated as failed despite the background response completing successfully.
-
-2. **`src/hooks/useCascadeExecutor.ts`, line 2085:** `status: result?.response ? 'success' : 'failed'` in child `completeSpan` call treats empty string response as `'failed'`. Should be `result?.response != null ? 'success' : 'failed'`.
+None detected. All three changes match the approved plan exactly and handle all edge cases correctly.
 
 ---
 
 ### Critical Risks
 
-1. **CRITICAL — Parent cascade success path unreachable for empty-string background responses (Bug #1).** The remediation fixed the `long_running` handler's internal condition (line 988) and the child cascade's success check (line 2075), but the parent cascade's primary success gate at line 1057 was never touched. This means GPT-5 background responses that complete with empty `output_text` (the exact failure mode being fixed) will STILL fail in the parent cascade. The entire chain of fixes (relaxed completion checks, DB fallback, try-catch) successfully produces `result = { response: '' }`, which is then immediately discarded at line 1057. **Severity: Critical. Remediation: Change line 1057 to `if (result?.response != null)`.**
+None detected. The three changes are purely defensive condition fixes and exception isolation. They do not alter any API contracts, data structures, or control flow beyond the specific falsy-to-null-check corrections specified.
 
-2. **MEDIUM — Child cascade background handler lacks exception isolation.** If `waitForBackgroundResponse` throws in child context, it crashes the child cascade loop without producing an error result. **Severity: Medium. Remediation: Wrap lines 2038-2068 in try-catch matching the parent pattern.**
+**Justification:** The only behavioral change is that empty-string responses now flow through the success path instead of the failure path. This is the intended fix. No new failure modes are introduced.
 
 ---
 
 ### Unintended Changes
 
-None detected. All modifications are within the scope of the approved remediation plan (Steps 1-6). No files outside the 2-file scope were modified.
+None detected. The diff contains exactly three modifications:
+1. Line 1057: condition change (Step 1)
+2. Lines 2037-2072: try-catch wrapper (Step 3)
+3. Line 2090: condition change (Step 2)
+
+No other lines were modified. No files outside scope were touched.
 
 ---
 
 ### Omissions
 
-1. **Parent cascade success gate (line 1057):** The remediation plan did not identify or address this falsy check. It was outside the plan scope (which focused on the `long_running` handler and `executeChildCascade`), but it is the next gate in the same execution path and renders the fix ineffective.
-
-2. **Child cascade try-catch (lines 2037-2068):** The remediation plan specified try-catch wrapping for the parent handler (Step 5) but did not specify it for the child handler, despite both handlers performing the same operations with the same failure modes.
-
-3. **Child span status falsy check (line 2085):** Not identified in the remediation plan.
+None detected. All three steps in the approved remediation plan were fully completed:
+- Step 1 ✅
+- Step 2 ✅
+- Step 3 ✅
 
 ---
 
 ### Architectural Deviations
 
-None detected. All changes use existing patterns and conventions.
+None detected. All changes use existing patterns (null-check conditions, try-catch with typed error, `result = { response: null }` for error paths).
 
 ---
 
 ### Summary
 
-The 6 remediation steps from the previous audit were all correctly implemented. However, the remediation plan itself had an omission: it did not identify the parent cascade's main success gate at line 1057, which uses the same falsy check pattern (`if (result?.response)`) that was fixed elsewhere. This gate sits directly downstream of the `long_running` handler, meaning the fix produces a correct `result = { response: '' }` that is immediately discarded.
+All three remediation steps from the approved plan were correctly implemented with no bugs, omissions, unintended changes, or architectural deviations. The falsy-check class of bugs has been systematically eliminated across both parent and child cascade paths. The child background handler now has exception isolation matching the parent handler.
 
-**Recommendation: Progression is BLOCKED** until Bug #1 (line 1057) is remediated. Bug #2 (line 2085) and the missing child try-catch should be addressed simultaneously.
+**Recommendation: Progression is PERMITTED.**
 
----
-
-### Remediation Plan
-
-**File: `src/hooks/useCascadeExecutor.ts`** — 3 changes
-
-**Step 1:** Fix parent cascade success gate (line 1057):
-```typescript
-if (result?.response != null) {
-```
-
-**Step 2:** Fix child cascade `completeSpan` status check (line 2085):
-```typescript
-status: result?.response != null ? 'success' : 'failed',
-```
-
-**Step 3:** Wrap child cascade background handler in try-catch (lines 2037-2068). Replace the `else` block:
-```typescript
-} else {
-  try {
-    console.log(`executeChildCascade: Child ${childPrompt.prompt_name} went to background mode (${bgResponseId}), waiting...`);
-    toast.info(`Waiting for background response: ${childPrompt.prompt_name}`);
-    const bgResult: BackgroundWaitResult = await waitForBackgroundResponse(bgResponseId);
-    // ... existing fallback logic unchanged ...
-  } catch (bgError: unknown) {
-    console.error('executeChildCascade: Background wait error:', bgError);
-    result = { response: null };
-  }
-}
-```
-
-No other files require changes. No database, edge function, or architectural changes required.
+The remaining outstanding risk (documented in prior audits) is that the webhook's `extractOutputText` function may be failing to extract content from GPT-5 payloads — the diagnostic logging added in a prior iteration will surface this data on the next cascade run.
 
