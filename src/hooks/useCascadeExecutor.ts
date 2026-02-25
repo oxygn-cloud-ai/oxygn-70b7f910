@@ -1054,7 +1054,7 @@ export const useCascadeExecutor = () => {
                 return;
               }
 
-              if (result?.response) {
+              if (result?.response != null) {
                 const promptElapsedMs = Date.now() - promptStartTime;
                 
                 // Complete the span successfully
@@ -2035,35 +2035,40 @@ export const useCascadeExecutor = () => {
               console.error('executeChildCascade: No responseId in long_running interrupt data');
               result = { response: null };
             } else {
-              console.log(`executeChildCascade: Child ${childPrompt.prompt_name} went to background mode (${bgResponseId}), waiting...`);
+              try {
+                console.log(`executeChildCascade: Child ${childPrompt.prompt_name} went to background mode (${bgResponseId}), waiting...`);
 
-              toast.info(`Waiting for background response: ${childPrompt.prompt_name}`);
+                toast.info(`Waiting for background response: ${childPrompt.prompt_name}`);
 
-              const bgResult: BackgroundWaitResult = await waitForBackgroundResponse(bgResponseId);
+                const bgResult: BackgroundWaitResult = await waitForBackgroundResponse(bgResponseId);
 
-              if (bgResult.success && bgResult.response != null) {
-                result = {
-                  response: bgResult.response,
-                  response_id: bgResult.response_id || bgResponseId,
-                };
-              } else {
-                // Fallback: check if webhook/poll already updated the prompt directly
-                const { data: freshChild } = await supabaseClient
-                  .from(import.meta.env.VITE_PROMPTS_TBL)
-                  .select('output_response')
-                  .eq('row_id', childPrompt.row_id)
-                  .maybeSingle();
-
-                if (freshChild?.output_response != null && freshChild.output_response !== '') {
-                  console.log('executeChildCascade: Recovered response from prompt DB fallback');
+                if (bgResult.success && bgResult.response != null) {
                   result = {
-                    response: freshChild.output_response,
-                    response_id: bgResponseId,
+                    response: bgResult.response,
+                    response_id: bgResult.response_id || bgResponseId,
                   };
                 } else {
-                  console.error('executeChildCascade: Background response failed and no DB fallback available');
-                  result = { response: null };
+                  // Fallback: check if webhook/poll already updated the prompt directly
+                  const { data: freshChild } = await supabaseClient
+                    .from(import.meta.env.VITE_PROMPTS_TBL)
+                    .select('output_response')
+                    .eq('row_id', childPrompt.row_id)
+                    .maybeSingle();
+
+                  if (freshChild?.output_response != null && freshChild.output_response !== '') {
+                    console.log('executeChildCascade: Recovered response from prompt DB fallback');
+                    result = {
+                      response: freshChild.output_response,
+                      response_id: bgResponseId,
+                    };
+                  } else {
+                    console.error('executeChildCascade: Background response failed and no DB fallback available');
+                    result = { response: null };
+                  }
                 }
+              } catch (bgError: unknown) {
+                console.error('executeChildCascade: Background wait error:', bgError);
+                result = { response: null };
               }
             }
           }
@@ -2082,7 +2087,7 @@ export const useCascadeExecutor = () => {
           const latencyMs = Date.now() - childStartTime;
           await completeSpan({
             span_id: childSpanId,
-            status: result?.response ? 'success' : 'failed',
+            status: result?.response != null ? 'success' : 'failed',
             openai_response_id: result?.response_id,
             output: result?.response,
             latency_ms: latencyMs,
