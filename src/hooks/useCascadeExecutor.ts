@@ -977,46 +977,51 @@ export const useCascadeExecutor = () => {
                   console.error('executeCascade: No responseId in long_running interrupt data');
                   result = { response: null };
                 } else {
-                  toast.info(`Background processing: ${prompt.prompt_name}`, {
-                    description: 'Waiting for background processing to complete...',
-                    source: 'useCascadeExecutor',
-                  });
+                  try {
+                    toast.info(`Background processing: ${prompt.prompt_name}`, {
+                      description: 'Waiting for background processing to complete...',
+                      source: 'useCascadeExecutor',
+                    });
 
-                  const bgResult: BackgroundWaitResult = await waitForBackgroundResponse(bgResponseId);
+                    const bgResult: BackgroundWaitResult = await waitForBackgroundResponse(bgResponseId);
 
-                  if (bgResult.success && bgResult.response != null) {
-                    result = {
-                      response: bgResult.response,
-                      response_id: bgResult.response_id || bgResponseId,
-                    };
-
-                    // Update the prompt output in DB (same as executeChildCascade)
-                    await supabase
-                      .from(import.meta.env.VITE_PROMPTS_TBL)
-                      .update({
-                        output_response: bgResult.response,
-                        user_prompt_result: bgResult.response,
-                        updated_at: new Date().toISOString(),
-                      })
-                      .eq('row_id', prompt.row_id);
-                  } else {
-                    // Fallback: check if webhook/poll already updated the prompt directly
-                    const { data: freshPrompt } = await supabase
-                      .from(import.meta.env.VITE_PROMPTS_TBL)
-                      .select('output_response')
-                      .eq('row_id', prompt.row_id)
-                      .maybeSingle();
-
-                    if (freshPrompt?.output_response != null && freshPrompt.output_response !== '') {
-                      console.log('executeCascade: Recovered response from prompt DB fallback');
+                    if (bgResult.success && bgResult.response != null) {
                       result = {
-                        response: freshPrompt.output_response,
-                        response_id: bgResponseId,
+                        response: bgResult.response,
+                        response_id: bgResult.response_id || bgResponseId,
                       };
+
+                      // Update the prompt output in DB (same as executeChildCascade)
+                      await supabase
+                        .from(import.meta.env.VITE_PROMPTS_TBL)
+                        .update({
+                          output_response: bgResult.response,
+                          user_prompt_result: bgResult.response,
+                          updated_at: new Date().toISOString(),
+                        })
+                        .eq('row_id', prompt.row_id);
                     } else {
-                      console.error('executeCascade: Background response failed and no DB fallback available');
-                      result = { response: null };
+                      // Fallback: check if webhook/poll already updated the prompt directly
+                      const { data: freshPrompt } = await supabase
+                        .from(import.meta.env.VITE_PROMPTS_TBL)
+                        .select('output_response')
+                        .eq('row_id', prompt.row_id)
+                        .maybeSingle();
+
+                      if (freshPrompt?.output_response != null && freshPrompt.output_response !== '') {
+                        console.log('executeCascade: Recovered response from prompt DB fallback');
+                        result = {
+                          response: freshPrompt.output_response,
+                          response_id: bgResponseId,
+                        };
+                      } else {
+                        console.error('executeCascade: Background response failed and no DB fallback available');
+                        result = { response: null };
+                      }
                     }
+                  } catch (bgError: unknown) {
+                    console.error('executeCascade: Background wait error:', bgError);
+                    result = { response: null };
                   }
                 }
               }
@@ -1749,7 +1754,7 @@ export const useCascadeExecutor = () => {
         }
       };
 
-      const finish = (result) => {
+      const finish = (result: BackgroundWaitResult) => {
         if (resolved) return;
         resolved = true;
         cleanup();
@@ -2034,13 +2039,32 @@ export const useCascadeExecutor = () => {
 
               toast.info(`Waiting for background response: ${childPrompt.prompt_name}`);
 
-              const bgResult = await waitForBackgroundResponse(bgResponseId);
+              const bgResult: BackgroundWaitResult = await waitForBackgroundResponse(bgResponseId);
 
-              // Overwrite result with the actual background response
-              result = {
-                response: bgResult.response,
-                response_id: bgResult.response_id,
-              };
+              if (bgResult.success && bgResult.response != null) {
+                result = {
+                  response: bgResult.response,
+                  response_id: bgResult.response_id || bgResponseId,
+                };
+              } else {
+                // Fallback: check if webhook/poll already updated the prompt directly
+                const { data: freshChild } = await supabaseClient
+                  .from(import.meta.env.VITE_PROMPTS_TBL)
+                  .select('output_response')
+                  .eq('row_id', childPrompt.row_id)
+                  .maybeSingle();
+
+                if (freshChild?.output_response != null && freshChild.output_response !== '') {
+                  console.log('executeChildCascade: Recovered response from prompt DB fallback');
+                  result = {
+                    response: freshChild.output_response,
+                    response_id: bgResponseId,
+                  };
+                } else {
+                  console.error('executeChildCascade: Background response failed and no DB fallback available');
+                  result = { response: null };
+                }
+              }
             }
           }
         }
@@ -2048,7 +2072,7 @@ export const useCascadeExecutor = () => {
         const promptResult = {
           promptRowId: childPrompt.row_id,
           promptName: childPrompt.prompt_name,
-          success: !!result?.response,
+          success: result?.response != null,
           response: result?.response,
         };
         results.push(promptResult);
@@ -2073,7 +2097,7 @@ export const useCascadeExecutor = () => {
         }
 
         // Update the child prompt's output in database
-        if (result?.response) {
+        if (result?.response != null) {
           await supabaseClient
             .from(import.meta.env.VITE_PROMPTS_TBL)
             .update({
