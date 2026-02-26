@@ -113,6 +113,7 @@ Non-provider components also nested within: `PostHogPageView`, `NavigationGuard`
 
 ### Routing Structure
 - `/auth` → `Auth.tsx` (public)
+- `/~oauth/*` → blank `<div />` (public) — absorbs Lovable OAuth callback redirects so `ProtectedRoute` never intercepts them
 - `/*` → `ProtectedRoute` wrapping `MainLayout.tsx` (authenticated)
 - Internal navigation within MainLayout uses `activeNav` state (not nested routes)
 - Views: prompts, templates, settings, health, admin
@@ -449,6 +450,8 @@ Google OAuth sign-in uses Lovable Cloud as an intermediary layer (`src/integrati
 5. AuthContext manages session state and user profile
 
 This pattern allows centralized OAuth management through Lovable while maintaining Supabase as the auth backend. The `lovable/index.ts` shim is auto-generated and should not be manually modified.
+
+**`ProtectedRoute` OAuth guard**: Before redirecting unauthenticated users to `/auth`, `ProtectedRoute` checks `window.location.hash` for `access_token` or `refresh_token`. If present (mid-OAuth redirect), it renders a loading spinner and waits — preventing a premature redirect that would discard the OAuth tokens.
 
 ### Integrations
 
