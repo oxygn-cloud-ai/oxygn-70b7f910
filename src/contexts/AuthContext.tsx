@@ -155,7 +155,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setUser(currentUser);
         
         if (currentUser) {
-          const isActualLogin = event === 'SIGNED_IN' && initialSessionHandledRef.current;
+          const isActualLogin = event === 'SIGNED_IN';
           const provider = newSession?.user?.app_metadata?.provider || 'unknown';
           
           // Mark as handled if not already (covers callback case where INITIAL_SESSION had null)
