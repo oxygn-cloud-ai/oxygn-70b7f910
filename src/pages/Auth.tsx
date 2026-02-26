@@ -18,32 +18,25 @@ const Auth = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (!loading && isAuthenticated) {
-      navigate('/');
-    }
-  }, [isAuthenticated, loading, navigate]);
-
   const handleGoogleSignIn = async () => {
-    const result = await signInWithGoogle();
-    if (!result.error) {
-      navigate('/');
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await signInWithGoogle();
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleEmailSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
     const result = isSignUp
       ? await signUpWithPassword(email, password)
       : await signInWithPassword(email, password);
-    
-    if (!result.error && !isSignUp) {
-      navigate('/');
+    if (result.error || isSignUp) {
+      setIsSubmitting(false);
     }
-    
-    setIsSubmitting(false);
   };
 
   if (loading) {
