@@ -17,6 +17,16 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
+  // Don't redirect if OAuth tokens are being parsed from URL hash
+  const hash = window.location.hash;
+  if (hash && (hash.includes('access_token') || hash.includes('refresh_token'))) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
     return <Navigate to="/auth" replace />;
   }
