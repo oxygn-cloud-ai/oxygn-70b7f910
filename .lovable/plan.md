@@ -1,80 +1,64 @@
 
 
-## Diagnosis
+## Auth Login Redirect Fix
 
-**Evidence from network logs and session replay:**
-- Password auth succeeds (6+ calls returning HTTP 200 with valid tokens)
-- `is_admin` and `profiles` fetches fire (confirming `setupAuthenticatedUser` runs)
-- The Sign In button shows a spinner for ~400ms then re-enables with "Sign In" text
-- User remains on `/auth` for 48+ seconds despite being authenticated
-- No console errors
+### Root cause
+`Auth.tsx` calls `navigate('/')` imperatively before React has flushed the `isAuthenticated` state update. `ProtectedRoute` reads stale state and bounces back to `/auth`.
 
-**Root cause:** Auth.tsx relies solely on a reactive `useEffect` to navigate after login:
+### Fix: One file change — `src/pages/Auth.tsx`
+
+**1. Imports (lines 1-2)**
+- Remove `useEffect` from React import
+- Replace `useNavigate` with `Navigate` from `react-router-dom`
+
+**2. Delete (lines 13, 21-25)**
+- Delete `const navigate = useNavigate()`
+- Delete the navigation `useEffect` block
+
+**3. Replace `handleGoogleSignIn` (lines 27-32)**
 ```typescript
-useEffect(() => {
-  if (!loading && isAuthenticated) {
-    navigate('/');
-  }
-}, [isAuthenticated, loading, navigate]);
-```
-
-This pattern has a timing fragility: `supabase.auth.signInWithPassword` resolves its promise (triggering `setIsSubmitting(false)` which re-renders Auth.tsx) in the same microtask batch as `onAuthStateChange` fires SIGNED_IN (which sets `user` in context). Depending on React's batching behavior in the preview iframe, the useEffect may fire with stale closure values or miss the `isAuthenticated` transition entirely — especially when the user double-clicks (which the session replay confirms: two submissions within 133ms, creating competing session updates).
-
-**The fix:** Add explicit navigation on successful login in `handleEmailSubmit`, so the redirect doesn't depend solely on the reactive useEffect. Keep the useEffect as a fallback for page-load scenarios (e.g., returning with an existing session).
-
----
-
-## Plan
-
-### File: `src/pages/Auth.tsx`
-
-**Change:** In `handleEmailSubmit`, navigate to `/` explicitly when login/signup succeeds, instead of relying solely on the context-driven useEffect.
-
-**Current code (lines 31-42):**
-```typescript
-const handleEmailSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
+const handleGoogleSignIn = async () => {
+  if (isSubmitting) return;
   setIsSubmitting(true);
-  
-  if (isSignUp) {
-    await signUpWithPassword(email, password);
-  } else {
-    await signInWithPassword(email, password);
+  try {
+    await signInWithGoogle();
+  } finally {
+    setIsSubmitting(false);
   }
-  
-  setIsSubmitting(false);
 };
 ```
 
-**New code:**
+**4. Replace `handleEmailSubmit` (lines 34-47)**
 ```typescript
 const handleEmailSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
   e.preventDefault();
   setIsSubmitting(true);
-  
   const result = isSignUp
     ? await signUpWithPassword(email, password)
     : await signInWithPassword(email, password);
-  
-  if (!result.error && !isSignUp) {
-    navigate('/');
+  if (result.error || isSignUp) {
+    setIsSubmitting(false);
   }
-  
-  setIsSubmitting(false);
 };
 ```
 
-Key details:
-- Only navigates for sign-in (not sign-up, which may require email verification)
-- Checks `result.error` to avoid navigating on failure
-- The existing useEffect is kept as a fallback (handles page-load redirects for existing sessions)
-- No other changes to Auth.tsx or AuthContext.tsx
+**5. Add declarative redirect after loading check (after line 55)**
+```typescript
+if (isAuthenticated) {
+  return <Navigate to="/" replace />;
+}
+```
 
-### Files NOT changed
-- `src/contexts/AuthContext.tsx` — no changes needed
-- `src/components/ProtectedRoute.tsx` — no changes needed
-- No backend, database, or dependency changes
+**6. Google button — add disabled prop (line 83)**
+```typescript
+<Button
+  onClick={handleGoogleSignIn}
+  disabled={isSubmitting}
+  ...
+```
 
-### Technical detail
-The `signInWithPassword` function returns `{ error: null }` on success. By the time this promise resolves, `supabase.auth.signInWithPassword` has already internally stored the session. So when `navigate('/')` fires, ProtectedRoute will see `isAuthenticated=true` (the `onAuthStateChange` SIGNED_IN event has already set the user in context) and render MainLayout instead of redirecting back to `/auth`.
+### No other files changed
+- `AuthContext.tsx` — unchanged
+- `ProtectedRoute.tsx` — unchanged
+- No backend, routing, or dependency changes
 
