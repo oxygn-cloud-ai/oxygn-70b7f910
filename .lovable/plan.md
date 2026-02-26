@@ -1,273 +1,164 @@
 
 
-## Deep Adversarial Audit of `.lovable/plan.md`
-
-### Critical Finding 1: The plan describes changes that are ALREADY IMPLEMENTED and ALREADY FAILING
-
-The plan.md lists 5 steps. Every substantive step (1, 2, 3) has **already been applied** to the codebase:
-
-| Plan Step | Current Code Status |
-|---|---|
-| Step 1: Change `redirect_uri` to `${origin}/auth` | Already done — `AuthContext.tsx` line 210 |
-| Step 2: Harden `isOAuthCallbackInProgress` with hash + query params | Already done — `ProtectedRoute.tsx` lines 9-27 |
-| Step 3: Skip `INITIAL_SESSION`, load via `getSession()` | Already done — `AuthContext.tsx` line 148 |
-| Step 4: Keep `/~oauth/*` route | Already done — `App.tsx` line 41 |
-| Step 5: Add debug logs | Partially done — debug logs exist in both files |
-
-The plan is **stale**. It documents the approach that was implemented and is currently failing. Executing it again would be a no-op.
-
-### Critical Finding 2: Skipping `INITIAL_SESSION` IS the root cause
-
-Tracing the published-domain flow through the actual library source (`@lovable.dev/cloud-auth-js`):
-
-1. User clicks "Sign in with Google"
-2. `isInIframe` = `false` on published domain (line 65 of cloud-auth-js)
-3. Browser navigates away to `/~oauth/initiate?provider=google&redirect_uri=https://oxygn.lovable.app/auth&...`
-4. Lovable broker completes Google auth, redirects back to `https://oxygn.lovable.app/auth#access_token=...&refresh_token=...`
-5. React app boots fresh (full page load — NOT an SPA navigation)
-6. Supabase client initializes, detects hash tokens, begins async processing
-7. `onAuthStateChange` fires `INITIAL_SESSION` — **but the current code skips it entirely** (line 148)
-8. `getSession()` is called — it races against the async hash token processing
-9. If `getSession()` resolves BEFORE hash processing completes → returns `null` → `loading=false` → user appears unauthenticated
-10. Auth.tsx sees `!loading && !isAuthenticated` → stays on login screen
-11. `SIGNED_IN` event fires later with the real session → sets `isAuthenticated=true` → Auth.tsx effect calls `navigate('/')` → but this navigate goes to `ProtectedRoute` which may re-evaluate too fast
-
-The race between step 8 and step 9 is non-deterministic. On fast networks/machines it may work; on slower ones it fails consistently.
-
-### Critical Finding 3: `ProtectedRoute` infinite spinner risk
-
-`isOAuthCallbackInProgress()` checks `window.location.hash` and `window.location.search` for OAuth markers. If the Supabase client processes tokens but the URL hash is NOT cleared (Supabase sometimes clears it, sometimes doesn't), this function returns `true` indefinitely, causing an **infinite loading spinner** with no timeout or escape hatch.
-
-### Critical Finding 4: `AuthContextValue` interface mismatch
-
-The `AuthContextValue` interface declares `isPlatformAdmin: boolean` and 5 tenant fields (`tenantId`, `tenantName`, `tenantRole`, `tenantStatus`, `isTenantAdmin`) — but the `value` object returned at line 297-308 does NOT include any of them. With `// @ts-nocheck` this is silent. With strict TypeScript this would be a compile error and consumers accessing these fields get `undefined`.
-
-### Critical Finding 5: `Auth.tsx` has `// @ts-nocheck`
-
-The plan proposes adding a "safety mechanism" to `Auth.tsx` but does not address that the file has `// @ts-nocheck`, which contradicts the requirement that all files must have strict type safety. The `handleEmailSubmit` handler parameter `e` is untyped (line 32).
-
-### Critical Finding 6: Proposed `src/utils/oauthDetection.ts` duplicates existing code
-
-The plan proposes creating a new shared utility file. The function `isOAuthCallbackInProgress()` already exists in `ProtectedRoute.tsx` (lines 9-27) with identical logic. The plan must specify this is an extraction/refactor, not new logic, and must remove the inline version.
-
-### Critical Finding 7: Plan step 3 contradicts the approved conversation plan
-
-The plan.md says "Ignore `INITIAL_SESSION` event" (step 3). But the conversation's approved fix (the one that received "Lovable plan: Approved") says the opposite: **stop skipping `INITIAL_SESSION`** and handle it with callback awareness. The plan.md was never updated to reflect the approved analysis.
-
-### Critical Finding 8: No timeout on callback waiting
-
-Both `ProtectedRoute` and the proposed `AuthContext` callback guard lack a timeout. If the OAuth callback fails silently (broker error, network issue, corrupted tokens), the user sees an infinite spinner with no way to recover except manually navigating to `/auth`.
-
-### Critical Finding 9: `Auth.tsx` redirect effect has no callback awareness
-
-`Auth.tsx` line 22-26: `useEffect(() => { if (!loading && isAuthenticated) navigate('/'); })`. When Auth.tsx loads with hash tokens (the callback landing), `loading` starts `true`, then flips to `false` after `getSession()`. If `getSession()` returns null (race), `isAuthenticated` is false, so the user stays on the login page. When `SIGNED_IN` finally fires, `isAuthenticated` becomes true and `navigate('/')` fires — but at this point the hash tokens may still be in the URL, and `ProtectedRoute` on `/` may detect them and show a spinner, or `getSession()` from `/` may still race.
+## Adversarial Implementation Audit Report
 
 ---
 
-## Revised Plan
-
-### Goal
-Fix the published-domain Google OAuth login loop. No other changes.
-
-### Files Modified
+### Files Changed
 
 | File | Change Type |
 |---|---|
-| `src/utils/oauthDetection.ts` | New file |
-| `src/contexts/AuthContext.tsx` | Amend |
-| `src/components/ProtectedRoute.tsx` | Amend |
+| `src/utils/oauthDetection.ts` | Created |
+| `src/contexts/AuthContext.tsx` | Amended |
+| `src/components/ProtectedRoute.tsx` | Amended |
+| `CLAUDE.md` | Amended (documentation) |
 
-Files NOT touched: `src/App.tsx`, `src/pages/Auth.tsx`, `src/integrations/lovable/index.ts` (auto-generated), any backend/DB files.
+---
 
-### Step 1: Create `src/utils/oauthDetection.ts`
+### Per-File Analysis
 
-Extract callback detection to a shared utility with strict types. No `// @ts-nocheck`.
+#### 1. `src/utils/oauthDetection.ts` (New)
+
+**Description**: Shared utility extracting OAuth callback detection logic previously inline in ProtectedRoute.
+
+**Verification**:
+- Strict TypeScript, explicit return type `boolean`. No `any`, no `@ts-nocheck`. ✅
+- Detects implicit flow tokens in hash (`access_token`, `refresh_token`, `id_token`). ✅
+- Detects authorization code flow params (`code`, `state`, `error`). ✅
+- No side effects, pure function. ✅
+- Matches plan specification exactly. ✅
+
+**Issues**: None.
+
+**Verification status**: ✅ Correct | **Risk level**: Low
+
+---
+
+#### 2. `src/contexts/AuthContext.tsx` (Amended)
+
+**Description**: Stopped skipping `INITIAL_SESSION`; removed `getSession()` race; added safety timeout; fixed `AuthContextValue` value object completeness; imported shared `isOAuthCallbackInProgress`.
+
+**Verification**:
+
+- `INITIAL_SESSION` is now processed (lines 130-149). When session has a user, finalizes immediately. When null but callback in progress, keeps `loading=true`. When null with no callback, sets `loading=false`. ✅
+- Standalone `getSession()` call removed. ✅
+- Safety timeout at 5 seconds (lines 182-189) with cleanup (line 193). ✅
+- `value` object (lines 291-308) now includes `isPlatformAdmin`, `tenantId`, `tenantName`, `tenantRole`, `tenantStatus`, `isTenantAdmin`. ✅
+- Import of `isOAuthCallbackInProgress` from shared utility (line 6). ✅
+- `redirect_uri` remains `${window.location.origin}/auth` (line 207). ✅
+- No `// @ts-nocheck` present. ✅
+
+**Issues identified**:
+
+**⚠️ Warning — Login tracking regression (lines 158-164)**:
+In the published-domain callback path: `INITIAL_SESSION` fires with null user (callback in progress) → `initialSessionHandledRef.current` remains `false` → `SIGNED_IN` fires with session → `isActualLogin = event === 'SIGNED_IN' && initialSessionHandledRef.current` evaluates to `false`. The `user_login_success` PostHog event is NOT tracked for Google OAuth logins on the published domain.
+
+In the previous (broken) implementation, the `getSession()` path would set `initialSessionHandledRef.current = true` before `SIGNED_IN` fired, so login tracking worked (when session actually resolved). This is a minor analytics regression.
+
+Severity: Low. Functional auth is unaffected. Only PostHog tracking is missed for this specific flow.
+
+**Verification status**: ⚠️ Warning | **Risk level**: Low
+
+---
+
+#### 3. `src/components/ProtectedRoute.tsx` (Amended)
+
+**Description**: Replaced inline OAuth detection with shared utility import; added 5-second timeout escape hatch.
+
+**Verification**:
+
+- Imports `isOAuthCallbackInProgress` from `@/utils/oauthDetection` (line 4). ✅
+- Inline implementation fully removed (no duplication). ✅
+- Timeout escape hatch (lines 14-21): `useEffect` sets `callbackTimedOut=true` after 5 seconds. ✅
+- Cleanup: `clearTimeout` in effect cleanup. ✅
+- Spinner shown while `loading || callbackInProgress` (line 25). ✅
+- Redirect to `/auth` when not authenticated (line 35). ✅
+- Debug log on redirect (line 34). ✅
+- Empty dependency array `[]` on useEffect means timeout starts once on mount. If `isOAuthCallbackInProgress()` returns false on mount, the effect returns early and no timer is set. Correct. ✅
+- `children` return type: `React.ReactNode` passed through as `{children}` — returns `ReactElement | null` per JSX. TypeScript is satisfied because function return annotation is implicit. ✅
+
+**Issues**: None.
+
+**Verification status**: ✅ Correct | **Risk level**: Low
+
+---
+
+#### 4. `CLAUDE.md` (Amended)
+
+**Description**: Updated utility module count from 16 to 17; added `oauthDetection.ts` entry.
+
+**Verification**:
+
+**❌ Bug — Documentation update not persisted**: The `<last-diff>` shows changes to CLAUDE.md (lines 58 and 277 changed from 16→17, line 295 added `oauthDetection.ts` entry). However, the current file content at line 277 reads `### Utilities (\`src/utils/\`) - 16 modules` and line 295 shows `- \`logger.ts\` - Logging utilities` with no `oauthDetection.ts` entry following it. The documentation update appears to not have been applied or was reverted.
+
+**Verification status**: ❌ Bug Found | **Risk level**: Low
+
+---
+
+### Bugs Found
+
+| # | File | Location | Description |
+|---|---|---|---|
+| 1 | `CLAUDE.md` | Lines 58, 277, 295 | Documentation update (16→17 modules, oauthDetection.ts entry) shown in diff but not present in current file. Module count and entry are missing. |
+
+---
+
+### Critical Risks
+
+None identified. The implementation correctly addresses the root cause (skipping `INITIAL_SESSION`) and introduces appropriate safety timeouts to prevent infinite spinners.
+
+---
+
+### Unintended Changes
+
+None detected. All changes are within the approved scope of 3 source files + documentation.
+
+---
+
+### Omissions
+
+| # | Description | Severity |
+|---|---|---|
+| 1 | `CLAUDE.md` not updated with `oauthDetection.ts` entry (or update lost). | Low |
+| 2 | Login tracking (`user_login_success` PostHog event) regressed for published-domain Google OAuth flow due to `initialSessionHandledRef` timing change. The plan did not specify preserving this behavior, but it is an unintended side effect. | Low |
+
+---
+
+### Architectural Deviations
+
+None. The implementation follows existing patterns:
+- Shared utility in `src/utils/` (consistent with 16 existing utilities)
+- Auth logic centralized in `AuthContext` (existing pattern)
+- `ProtectedRoute` delegates to `useAuth()` context (existing pattern)
+- `redirect_uri` set to `/auth` intentionally diverges from Lovable Cloud default (`window.location.origin`) — this is the documented, justified fix
+
+---
+
+### Summary
+
+The implementation is **functionally correct** for its stated goal: fixing the published-domain Google OAuth login loop. The root cause (skipping `INITIAL_SESSION`) is properly addressed. Safety timeouts prevent infinite spinners. The `AuthContextValue` interface mismatch is fixed. Code duplication is eliminated via the shared utility.
+
+Two minor issues found:
+1. CLAUDE.md documentation update appears missing (cosmetic)
+2. PostHog login tracking regressed for published-domain Google OAuth (analytics only, no functional impact)
+
+**Recommendation**: Progression is **permitted**. Neither issue blocks the fix. Both can be addressed in a follow-up.
+
+---
+
+### Remediation Plan
+
+**Step 1** — Fix CLAUDE.md: Update utility count to 17 and add `oauthDetection.ts` entry after `logger.ts`.
+
+**Step 2** — Fix login tracking regression in `AuthContext.tsx`: In the non-INITIAL_SESSION handler (line 158), change the `isActualLogin` condition to also detect the case where `INITIAL_SESSION` had a null user during a callback:
 
 ```typescript
-/**
- * Detects if the current URL contains OAuth callback markers,
- * indicating a redirect flow is in progress and session hydration
- * has not yet completed.
- */
-export const isOAuthCallbackInProgress = (): boolean => {
-  const hash = window.location.hash;
-  const search = window.location.search;
-
-  // Implicit flow: tokens in hash
-  if (
-    hash &&
-    (hash.includes('access_token') ||
-      hash.includes('refresh_token') ||
-      hash.includes('id_token'))
-  ) {
-    return true;
-  }
-
-  // Authorization code flow: params in query string
-  const params = new URLSearchParams(search);
-  if (params.has('code') || params.has('state') || params.has('error')) {
-    return true;
-  }
-
-  return false;
-};
+const isActualLogin = event === 'SIGNED_IN' && !initialSessionHandledRef.current
+  ? true  // First SIGNED_IN after null INITIAL_SESSION = real login
+  : event === 'SIGNED_IN' && initialSessionHandledRef.current;
 ```
 
-Why: eliminates duplication between `ProtectedRoute` and `AuthContext`. Single source of truth.
+Or simplified: `const isActualLogin = event === 'SIGNED_IN';` — since `SIGNED_IN` only fires on actual sign-in events (not token refreshes, which fire `TOKEN_REFRESHED`).
 
-### Step 2: Amend `src/contexts/AuthContext.tsx`
-
-**Remove `// @ts-nocheck`.** Fix all resulting type issues (the `value` object missing `isPlatformAdmin` and tenant fields).
-
-**Stop skipping `INITIAL_SESSION`.** Handle it with callback awareness:
-
-```typescript
-// In onAuthStateChange handler:
-if (event === 'INITIAL_SESSION') {
-  setSession(newSession);
-  const currentUser = newSession?.user ?? null;
-  setUser(currentUser);
-
-  if (currentUser) {
-    // Session already resolved from hash tokens — finalize
-    initialSessionHandledRef.current = true;
-    setLoading(false);
-    setTimeout(() => {
-      setupAuthenticatedUser(currentUser, false);
-    }, 0);
-  } else if (!isOAuthCallbackInProgress()) {
-    // No callback in progress, genuinely unauthenticated
-    initialSessionHandledRef.current = true;
-    setLoading(false);
-  }
-  // else: callback in progress but session not ready yet
-  // keep loading=true, wait for SIGNED_IN event
-  return;
-}
-```
-
-**Remove the standalone `getSession()` call** — it races against `INITIAL_SESSION` and is the source of the null-session-during-callback bug. Replace with a **safety timeout** (5 seconds) that fires only if `INITIAL_SESSION` hasn't resolved:
-
-```typescript
-// Safety timeout: if neither INITIAL_SESSION nor SIGNED_IN
-// delivers a session within 5 seconds, give up and show login
-const safetyTimeout = setTimeout(() => {
-  if (!mountedRef.current) return;
-  if (!initialSessionHandledRef.current) {
-    console.warn('[Auth] Safety timeout: no session after 5s');
-    initialSessionHandledRef.current = true;
-    setLoading(false);
-  }
-}, 5000);
-
-// In cleanup:
-return () => {
-  mountedRef.current = false;
-  clearTimeout(safetyTimeout);
-  subscription.unsubscribe();
-};
-```
-
-**Fix the `value` object** to include all declared interface fields:
-
-```typescript
-const value: AuthContextValue = {
-  user,
-  session,
-  loading,
-  isAdmin,
-  isPlatformAdmin: false,  // Not yet implemented
-  userProfile,
-  tenantId,
-  tenantName,
-  tenantRole,
-  tenantStatus,
-  isTenantAdmin,
-  signInWithGoogle,
-  signInWithPassword,
-  signUpWithPassword,
-  signOut,
-  isAuthenticated: !!user,
-};
-```
-
-**Keep `redirect_uri: \`\${window.location.origin}/auth\``** — already correct, no change needed.
-
-### Step 3: Amend `src/components/ProtectedRoute.tsx`
-
-Replace inline `isOAuthCallbackInProgress` with import from shared utility. Add a **timeout-based escape hatch** so the spinner cannot persist indefinitely:
-
-```typescript
-import { isOAuthCallbackInProgress } from '@/utils/oauthDetection';
-
-const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { isAuthenticated, loading } = useAuth();
-  const [callbackTimedOut, setCallbackTimedOut] = useState(false);
-
-  useEffect(() => {
-    if (!isOAuthCallbackInProgress()) return;
-    const timer = setTimeout(() => setCallbackTimedOut(true), 5000);
-    return () => clearTimeout(timer);
-  }, []);
-
-  const callbackInProgress = isOAuthCallbackInProgress() && !callbackTimedOut;
-
-  if (loading || callbackInProgress) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/auth" replace />;
-  }
-
-  return children;
-};
-```
-
-Add `import { useState, useEffect } from 'react';` to the imports.
-
-### What is NOT changed
-
-- `src/App.tsx` — no changes. `/~oauth/*` route stays as-is.
-- `src/pages/Auth.tsx` — no changes. Its `useEffect` redirect (`if (!loading && isAuthenticated) navigate('/')`) continues to work correctly because the `SIGNED_IN` event from `AuthContext` will set `isAuthenticated=true` and `loading=false`, triggering the navigate.
-- No database, edge function, or backend changes.
-- No new dependencies.
-
-### Why this fixes the loop
-
-On published domain after Google auth:
-1. Browser loads `https://oxygn.lovable.app/auth#access_token=...&refresh_token=...`
-2. `/auth` route renders `Auth.tsx` (public route, no `ProtectedRoute`)
-3. Supabase client initializes, detects hash, begins processing
-4. `INITIAL_SESSION` fires — if session is ready (common case), `isAuthenticated=true`, `loading=false`, Auth.tsx navigates to `/`
-5. If `INITIAL_SESSION` fires with null (tokens still processing), `isOAuthCallbackInProgress()` returns `true` → `loading` stays `true` → Auth.tsx shows spinner
-6. `SIGNED_IN` fires with the real session → `isAuthenticated=true`, `loading=false` → Auth.tsx navigates to `/`
-7. Safety timeout at 5s prevents infinite spinner
-
-### Risk assessment
-
-| Risk | Mitigation |
-|---|---|
-| `getSession()` removal breaks session restoration on normal page loads (no callback) | `INITIAL_SESSION` handles this case: session exists → immediate finalize. This is the documented Supabase pattern. |
-| Safety timeout too short | 5 seconds is generous for token exchange. Can be increased if needed. |
-| `isPlatformAdmin: false` hardcoded | Matches current behavior (field existed in interface but was never provided — consumers already get `undefined`). No functional change. |
-| Removing `// @ts-nocheck` from AuthContext surfaces other type errors | Must fix all errors during implementation. The file is well-typed except for the missing `value` fields. |
-
-### Validation plan
-
-1. Publish to `oxygn.lovable.app`
-2. Test Google login in incognito window (no cached session)
-3. Verify: `/auth` → Google → `/auth#tokens` → auto-redirect to `/`
-4. Test password login still works
-5. Test page refresh with existing session (session restoration)
-6. Test sign-out → redirect to `/auth`
-7. Test with slow network (throttle to 3G) to stress the race window
-
-### Technical details
-
-Root cause: `INITIAL_SESSION` is the primary event through which Supabase delivers sessions parsed from URL hash tokens during full-page-redirect OAuth flows. Skipping it forces reliance on `getSession()`, which races against async hash processing and frequently resolves to null, leaving the user appearing unauthenticated on the login page.
+Both are low-priority and do not affect the OAuth fix.
 
