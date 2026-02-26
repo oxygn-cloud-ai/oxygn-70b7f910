@@ -139,14 +139,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         if (!mountedRef.current) return;
+        
+        console.debug('[Auth] onAuthStateChange:', event);
+        
+        // Skip INITIAL_SESSION - we handle initial load via getSession() below
+        // This prevents a race where INITIAL_SESSION fires with null user
+        // before getSession() resolves, causing a premature redirect
+        if (event === 'INITIAL_SESSION') return;
+        
         setSession(newSession);
         const currentUser = newSession?.user ?? null;
         
         setUser(currentUser);
         
         if (currentUser) {
-          // SIGNED_IN fires both on actual login AND initial session restoration
-          // We only want to track actual logins (after initial session has been handled)
           const isActualLogin = event === 'SIGNED_IN' && initialSessionHandledRef.current;
           const provider = newSession?.user?.app_metadata?.provider || 'unknown';
           
@@ -201,7 +207,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const signInWithGoogle = async (): Promise<{ error: Error | null }> => {
     try {
       const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
+        redirect_uri: `${window.location.origin}/auth`,
         extraParams: { prompt: 'select_account' }
       });
       
