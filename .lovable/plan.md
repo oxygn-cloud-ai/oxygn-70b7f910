@@ -1,51 +1,80 @@
 
 
-## Analysis of Your Google OAuth Redirect URIs
+## Diagnosis
 
-Your screenshot shows three Authorised Redirect URIs in Google Cloud Console:
+**Evidence from network logs and session replay:**
+- Password auth succeeds (6+ calls returning HTTP 200 with valid tokens)
+- `is_admin` and `profiles` fetches fire (confirming `setupAuthenticatedUser` runs)
+- The Sign In button shows a spinner for ~400ms then re-enables with "Sign In" text
+- User remains on `/auth` for 48+ seconds despite being authenticated
+- No console errors
 
-| # | URI | Status |
-|---|---|---|
-| 1 | `https://edxkisyskfazjmqpburj.supabase.co/auth/v1/callback` | ✅ Correct — active project |
-| 2 | `https://enhkhbppztvipdfnanli.supabase.co/auth/v1/callback` | ❌ Stale — legacy project ID |
-| 3 | `https://oxygn.lovable.app/~oauth/callback` | ✅ Correct — Lovable Cloud managed OAuth |
-
-### Finding 1 — URI 2 uses the legacy project ID
-
-Per your project memory: *"The legacy/external project ID `enhkhbppztvipdfnanli` must not be used."* The active project ID is `edxkisyskfazjmqpburj`. URI 2 should be removed to avoid confusion. It is not causing the current error but is dead configuration.
-
-### Finding 2 — The URIs themselves are not the root cause
-
-These URIs are the **server-side callbacks** — where Google sends the authorization code back to the broker (Supabase or Lovable Cloud). URI 1 and URI 3 cover both direct Supabase and Lovable Cloud flows correctly.
-
-The current error (`failed to exchange authorization code`) is caused by a different `redirect_uri` — the one your **code** sends when initiating the OAuth flow. Your code currently sends:
-
+**Root cause:** Auth.tsx relies solely on a reactive `useEffect` to navigate after login:
 ```typescript
-redirect_uri: `${window.location.origin}/auth`   // line 207 of AuthContext.tsx
+useEffect(() => {
+  if (!loading && isAuthenticated) {
+    navigate('/');
+  }
+}, [isAuthenticated, loading, navigate]);
 ```
 
-Lovable Cloud documentation specifies:
+This pattern has a timing fragility: `supabase.auth.signInWithPassword` resolves its promise (triggering `setIsSubmitting(false)` which re-renders Auth.tsx) in the same microtask batch as `onAuthStateChange` fires SIGNED_IN (which sets `user` in context). Depending on React's batching behavior in the preview iframe, the useEffect may fire with stale closure values or miss the `isAuthenticated` transition entirely — especially when the user double-clicks (which the session replay confirms: two submissions within 133ms, creating competing session updates).
 
-```typescript
-redirect_uri: window.location.origin              // no /auth suffix
-```
-
-The broker uses this value during the token exchange step. If it doesn't match what was registered/expected on the broker side, the exchange fails — which is exactly the error you're seeing.
-
-### Finding 3 — The `oauthDetection.ts` utility does NOT detect hash errors
-
-The current code checks `hash.includes('access_token')` etc. for success tokens, and `params.has('error')` for **query string** errors. But the actual error callback returns errors in the **hash** (`#error=server_error`), not the query string. This means `isOAuthCallbackInProgress()` would return `false` on an error callback that uses hash fragments, which is fine for the success path but means errors won't be detected as "callback in progress."
-
-This is not the root cause but is a gap in the defensive utility.
+**The fix:** Add explicit navigation on successful login in `handleEmailSubmit`, so the redirect doesn't depend solely on the reactive useEffect. Keep the useEffect as a fallback for page-load scenarios (e.g., returning with an existing session).
 
 ---
 
-## Recommended Actions
+## Plan
 
-1. **Remove URI 2** (`enhkhbppztvipdfnanli`) from your Google Console — it references the legacy project and is dead configuration.
-2. **Keep URI 1 and URI 3** — they are correct for the active project.
-3. **Fix line 207 of `AuthContext.tsx`** — change `redirect_uri` from `${window.location.origin}/auth` to `window.location.origin`. This is the actual fix for the `failed to exchange authorization code` error.
-4. **Add error hash detection in `AuthContext.tsx`** — surface OAuth errors that come back via `#error=...` so users see a clear message instead of silently staying on the login page.
+### File: `src/pages/Auth.tsx`
 
-The Google Console URIs are correctly configured (minus the stale legacy one). The bug is in your application code, not in Google's configuration.
+**Change:** In `handleEmailSubmit`, navigate to `/` explicitly when login/signup succeeds, instead of relying solely on the context-driven useEffect.
+
+**Current code (lines 31-42):**
+```typescript
+const handleEmailSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+  setIsSubmitting(true);
+  
+  if (isSignUp) {
+    await signUpWithPassword(email, password);
+  } else {
+    await signInWithPassword(email, password);
+  }
+  
+  setIsSubmitting(false);
+};
+```
+
+**New code:**
+```typescript
+const handleEmailSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+  setIsSubmitting(true);
+  
+  const result = isSignUp
+    ? await signUpWithPassword(email, password)
+    : await signInWithPassword(email, password);
+  
+  if (!result.error && !isSignUp) {
+    navigate('/');
+  }
+  
+  setIsSubmitting(false);
+};
+```
+
+Key details:
+- Only navigates for sign-in (not sign-up, which may require email verification)
+- Checks `result.error` to avoid navigating on failure
+- The existing useEffect is kept as a fallback (handles page-load redirects for existing sessions)
+- No other changes to Auth.tsx or AuthContext.tsx
+
+### Files NOT changed
+- `src/contexts/AuthContext.tsx` — no changes needed
+- `src/components/ProtectedRoute.tsx` — no changes needed
+- No backend, database, or dependency changes
+
+### Technical detail
+The `signInWithPassword` function returns `{ error: null }` on success. By the time this promise resolves, `supabase.auth.signInWithPassword` has already internally stored the session. So when `navigate('/')` fires, ProtectedRoute will see `isAuthenticated=true` (the `onAuthStateChange` SIGNED_IN event has already set the user in context) and render MainLayout instead of redirecting back to `/auth`.
 
