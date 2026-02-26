@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +10,6 @@ import chocolateFullLogo from '@/assets/chocolate-full-logo.png';
 
 const Auth = () => {
   const { signInWithGoogle, signInWithPassword, signUpWithPassword, isAuthenticated, loading } = useAuth();
-  const navigate = useNavigate();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,32 +17,25 @@ const Auth = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (!loading && isAuthenticated) {
-      navigate('/');
-    }
-  }, [isAuthenticated, loading, navigate]);
-
   const handleGoogleSignIn = async () => {
-    const result = await signInWithGoogle();
-    if (!result.error) {
-      navigate('/');
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await signInWithGoogle();
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleEmailSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
     const result = isSignUp
       ? await signUpWithPassword(email, password)
       : await signInWithPassword(email, password);
-    
-    if (!result.error && !isSignUp) {
-      navigate('/');
+    if (result.error || isSignUp) {
+      setIsSubmitting(false);
     }
-    
-    setIsSubmitting(false);
   };
 
   if (loading) {
@@ -52,6 +44,10 @@ const Auth = () => {
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
+  }
+
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />;
   }
 
   return (
@@ -82,6 +78,7 @@ const Auth = () => {
           {/* Google Sign In Button */}
           <Button 
             onClick={handleGoogleSignIn}
+            disabled={isSubmitting}
             variant="outline"
             className="w-full flex items-center justify-center gap-3 h-12 bg-background hover:bg-muted border-border hover:border-primary/30 transition-all"
           >
