@@ -451,7 +451,9 @@ Google OAuth sign-in uses Lovable Cloud as an intermediary layer (`src/integrati
 
 This pattern allows centralized OAuth management through Lovable while maintaining Supabase as the auth backend. The `lovable/index.ts` shim is auto-generated and should not be manually modified.
 
-**`ProtectedRoute` OAuth guard**: Before redirecting unauthenticated users to `/auth`, `ProtectedRoute` checks `window.location.hash` for `access_token` or `refresh_token`. If present (mid-OAuth redirect), it renders a loading spinner and waits — preventing a premature redirect that would discard the OAuth tokens.
+**`ProtectedRoute` OAuth guard**: Before redirecting unauthenticated users to `/auth`, `ProtectedRoute` checks for in-progress OAuth callbacks via `isOAuthCallbackInProgress()`. This detects both implicit flow (hash contains `access_token`, `refresh_token`, or `id_token`) and authorization code flow (query params contain `code`, `state`, or `error`). If either is detected, it renders a loading spinner and waits — preventing a premature redirect that would discard the OAuth tokens.
+
+**`AuthContext` initial session race prevention**: `onAuthStateChange` skips `INITIAL_SESSION` events entirely. Initial auth state is loaded exclusively via `getSession()`, after which `initialSessionHandledRef` is set to `true`. Subsequent `SIGNED_IN` events are then treated as real logins (and trigger login tracking). This prevents a race where `INITIAL_SESSION` fires with a null user before `getSession()` resolves, causing a spurious redirect to `/auth`. The Google OAuth redirect URI points to `${window.location.origin}/auth`.
 
 ### Integrations
 
