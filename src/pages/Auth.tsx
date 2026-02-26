@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +10,6 @@ import chocolateFullLogo from '@/assets/chocolate-full-logo.png';
 
 const Auth = () => {
   const { signInWithGoogle, signInWithPassword, signUpWithPassword, isAuthenticated, loading } = useAuth();
-  const navigate = useNavigate();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -47,6 +46,10 @@ const Auth = () => {
     );
   }
 
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-secondary/90 to-accent/20 p-4">
       {/* Background decoration */}
@@ -75,6 +78,7 @@ const Auth = () => {
           {/* Google Sign In Button */}
           <Button 
             onClick={handleGoogleSignIn}
+            disabled={isSubmitting}
             variant="outline"
             className="w-full flex items-center justify-center gap-3 h-12 bg-background hover:bg-muted border-border hover:border-primary/30 transition-all"
           >
