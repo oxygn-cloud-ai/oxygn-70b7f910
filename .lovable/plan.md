@@ -1,101 +1,41 @@
 
 
-## Adversarial Implementation Audit Report
+## Investigation Results: GPT-5 `extractOutputText` Failure — Confirmed
 
----
+### Evidence
 
-### Files Changed
+Database analysis proves that `extractOutputText` in `openai-webhook` is systematically failing for ALL GPT-5 responses:
 
-1. `src/hooks/useCascadeExecutor.ts`
+| Field | Value |
+|---|---|
+| `q_pending_responses.output_text` | **Empty string** for ALL 10 most recent completed responses |
+| `q_pending_responses.webhook_event_id` | Real webhook event IDs (not `poll_fallback_*`) — confirming webhooks ARE firing |
+| `q_prompts.output_response` | **Has content** for some prompts — written by `poll-openai-response` fallback |
 
-(Only one file was modified in the last diff. `supabase/functions/openai-webhook/index.ts` was modified in a prior iteration and was NOT part of this most recent implementation.)
+This means: Webhook fires → `extractOutputText` returns `''` → empty string stored in `output_text` → `[DIAG]` log fires (but logs have expired, last activity was Feb 22) → poll fallback sometimes writes output to `q_prompts` directly, but `q_pending_responses.output_text` remains empty.
 
----
+### Root Cause Analysis
 
-### Per-File Analysis
+The `extractOutputText` function (webhook line 129-141) and `extractContent` function (poll line 36-60) both filter for `item.type === 'message'`. If GPT-5's webhook payload uses a different output item type (e.g., `'text'`, `'output'`, or a nested structure), the entire extraction loop yields nothing.
 
-#### 1. `src/hooks/useCascadeExecutor.ts`
+Additionally, line 134 in the webhook has a **falsy guard on the text value itself**: `&& c.text` — if any content block has an empty string `text` field, it would be skipped. The poll function (line 52) correctly uses `typeof block.text === 'string'` instead.
 
-**Description of changes (remediation steps 1-3):**
-- Step 1: Changed parent cascade success gate at line 1057 from `if (result?.response)` to `if (result?.response != null)` ✅
-- Step 2: Changed child cascade `completeSpan` status check at line 2090 from `result?.response ? 'success' : 'failed'` to `result?.response != null ? 'success' : 'failed'` ✅
-- Step 3: Wrapped child cascade background handler (lines 2038-2072) in try-catch with `catch (bgError: unknown)` ✅
+### Why We Cannot Diagnose Further Without a Live Run
 
-**Verification status:** ✅ Correct
+The `[DIAG]` logs that would reveal the exact GPT-5 payload structure have expired (last run was Feb 22, 4 days ago). Edge function logs typically expire after ~1 hour. A fresh cascade run is required to capture the diagnostic output.
 
-**Detailed verification:**
+### What Needs to Happen
 
-1. **Line 1057 — Parent success gate.** Confirmed: `if (result?.response != null)` correctly evaluates to `true` for empty string `''` and `false` only for `null` or `undefined`. This matches the approved plan exactly. Downstream operations (`markPromptComplete`, `accumulatedResponses`, `promptDataMap`, span completion) are now reachable for empty-string background responses.
+**Step 1: Trigger a fresh GPT-5 run** — You need to run a single GPT-5 prompt (not necessarily the full Reporter Confidentiality cascade) from the app UI.
 
-2. **Line 2090 — Child span status.** Confirmed: `result?.response != null ? 'success' : 'failed'` correctly maps empty string to `'success'`. Matches approved plan.
+**Step 2: Check logs immediately** — Within minutes of the run completing, tell me to check the `openai-webhook` edge function logs for `[DIAG]` entries. The log will contain `rawOutputPreview` showing the exact payload structure GPT-5 sends.
 
-3. **Lines 2038-2072 — Child try-catch.** Confirmed: The entire background handler body (log, toast, `waitForBackgroundResponse`, success check, DB fallback) is wrapped in `try { ... } catch (bgError: unknown) { ... result = { response: null }; }`. This matches the parent handler pattern at lines 980-1025. The `catch` sets `result = { response: null }` which will be correctly evaluated as failure by the `!= null` check at line 2080.
+**Step 3: Fix `extractOutputText`** — Based on the payload structure revealed in Step 2, update the extraction logic to handle GPT-5's output format. At minimum, the following fixes are already identifiable:
 
-4. **Line 2080 — Child success check.** Confirmed pre-existing from prior remediation: `success: result?.response != null`. Consistent.
+- **Webhook line 134:** Change `&& c.text` to `&& typeof c.text === 'string'` (matching the poll function's approach) to avoid falsy-skipping empty strings
+- **Both functions:** Potentially add additional `item.type` checks if GPT-5 uses a type other than `'message'`
 
-5. **Line 2105 — Child DB update guard.** Confirmed pre-existing from prior remediation: `if (result?.response != null)`. Consistent.
+### Recommended Action
 
-6. **Edge cases verified:**
-   - `result = { response: '' }` → line 1057 passes ✅, line 2080 `success: true` ✅, line 2090 `'success'` ✅, line 2105 DB update executes ✅
-   - `result = { response: null }` → line 1057 fails ✅, line 2080 `success: false` ✅, line 2090 `'failed'` ✅, line 2105 DB update skipped ✅
-   - `result = undefined` → `result?.response` is `undefined`, `!= null` is `false` ✅
-   - Background handler throws → caught, `result = { response: null }`, falls through correctly ✅
-
-7. **No syntax errors, no undefined variables, no missing imports.** All changes are condition modifications and a try-catch wrapper — no new identifiers introduced.
-
-8. **No race conditions introduced.** The try-catch wraps sequential `await` calls with no parallel execution.
-
-9. **No resource leaks.** The try-catch does not introduce or suppress any subscription or timer cleanup issues.
-
-**Risk level:** Low
-
----
-
-### Bugs Found
-
-None detected. All three changes match the approved plan exactly and handle all edge cases correctly.
-
----
-
-### Critical Risks
-
-None detected. The three changes are purely defensive condition fixes and exception isolation. They do not alter any API contracts, data structures, or control flow beyond the specific falsy-to-null-check corrections specified.
-
-**Justification:** The only behavioral change is that empty-string responses now flow through the success path instead of the failure path. This is the intended fix. No new failure modes are introduced.
-
----
-
-### Unintended Changes
-
-None detected. The diff contains exactly three modifications:
-1. Line 1057: condition change (Step 1)
-2. Lines 2037-2072: try-catch wrapper (Step 3)
-3. Line 2090: condition change (Step 2)
-
-No other lines were modified. No files outside scope were touched.
-
----
-
-### Omissions
-
-None detected. All three steps in the approved remediation plan were fully completed:
-- Step 1 ✅
-- Step 2 ✅
-- Step 3 ✅
-
----
-
-### Architectural Deviations
-
-None detected. All changes use existing patterns (null-check conditions, try-catch with typed error, `result = { response: null }` for error paths).
-
----
-
-### Summary
-
-All three remediation steps from the approved plan were correctly implemented with no bugs, omissions, unintended changes, or architectural deviations. The falsy-check class of bugs has been systematically eliminated across both parent and child cascade paths. The child background handler now has exception isolation matching the parent handler.
-
-**Recommendation: Progression is PERMITTED.**
-
-The remaining outstanding risk (documented in prior audits) is that the webhook's `extractOutputText` function may be failing to extract content from GPT-5 payloads — the diagnostic logging added in a prior iteration will surface this data on the next cascade run.
+Run any single GPT-5 prompt from the app right now, then immediately ask me to check the webhook logs. This will reveal the exact payload format and allow a targeted fix in the same session.
 
