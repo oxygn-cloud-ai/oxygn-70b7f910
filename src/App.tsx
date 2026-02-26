@@ -38,6 +38,7 @@ const App = () => (
                           <ErrorBoundary message="This page encountered an error.">
                             <Routes>
                               <Route path="/auth" element={<Auth />} />
+                              <Route path="/~oauth/*" element={<div />} />
                               <Route
                                 path="/*"
                                 element={
