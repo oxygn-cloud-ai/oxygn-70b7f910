@@ -129,9 +129,9 @@ async function verifyWebhookSignature(
 function extractOutputText(output: WebhookPayload['data']['output']): string {
   let text = '';
   for (const item of output || []) {
-    if (item.type === 'message' && item.content) {
+    if (item.type === 'message' && Array.isArray(item.content)) {
       for (const c of item.content) {
-        if ((c.type === 'output_text' || c.type === 'text') && c.text) {
+        if ((c.type === 'output_text' || c.type === 'text') && typeof c.text === 'string') {
           text += c.text;
         }
       }
