@@ -195,6 +195,24 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     };
   }, []);
 
+  // Detect OAuth error fragments in URL hash (defensive — surfaces upstream failures)
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash || !hash.includes('error=')) return;
+
+    const hashParams = new URLSearchParams(hash.substring(1));
+    const error = hashParams.get('error');
+    const description = hashParams.get('error_description');
+
+    if (error) {
+      const message = description
+        ? decodeURIComponent(description).replace(/\+/g, ' ')
+        : `Authentication error: ${error}`;
+      toast.error(message);
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  }, []);
+
   // Whitelisted emails for password login (preview testing)
   const WHITELISTED_EMAILS = (import.meta.env.VITE_WHITELISTED_EMAILS || '')
     .split(',')
@@ -204,7 +222,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const signInWithGoogle = async (): Promise<{ error: Error | null }> => {
     try {
       const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: `${window.location.origin}/auth`,
+        redirect_uri: window.location.origin,
         extraParams: { prompt: 'select_account' }
       });
       
