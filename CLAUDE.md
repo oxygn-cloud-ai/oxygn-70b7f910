@@ -55,7 +55,7 @@ src/
 ├── pages/          # Route pages: Auth.tsx, MainLayout.tsx
 ├── services/       # API calls, mutations, 6 action executors
 ├── types/          # Type definitions (chat.ts, figma.ts, jira.ts)
-└── utils/          # 16 utility modules (see below)
+└── utils/          # 17 utility modules (see below)
 
 supabase/
 ├── functions/      # 26 Deno Edge Functions (see below)
@@ -274,7 +274,7 @@ Typing detection checks: `INPUT`, `TEXTAREA`, `SELECT` elements and `isContentEd
 - `errorHandling.ts` - Error handling utilities
 - `actionExecutors/` - 6 action executor modules + index
 
-### Utilities (`src/utils/`) - 16 modules
+### Utilities (`src/utils/`) - 17 modules
 
 - `variableResolver.ts` - Variable resolution engine
 - `resolveSystemVariables.ts` - System variable resolution
@@ -292,6 +292,7 @@ Typing detection checks: `INPUT`, `TEXTAREA`, `SELECT` elements and `isContentEd
 - `retryUtils.ts` - Retry logic for operations
 - `safeEnv.ts` - Safe environment variable access
 - `logger.ts` - Logging utilities
+- `oauthDetection.ts` - Shared `isOAuthCallbackInProgress()` utility (detects implicit and authorization code OAuth flows from URL hash/params)
 
 ### Database Tables (q_ prefix)
 - `q_prompts` - Prompt definitions with hierarchical structure
