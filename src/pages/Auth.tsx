@@ -32,10 +32,12 @@ const Auth = () => {
     e.preventDefault();
     setIsSubmitting(true);
     
-    if (isSignUp) {
-      await signUpWithPassword(email, password);
-    } else {
-      await signInWithPassword(email, password);
+    const result = isSignUp
+      ? await signUpWithPassword(email, password)
+      : await signInWithPassword(email, password);
+    
+    if (!result.error && !isSignUp) {
+      navigate('/');
     }
     
     setIsSubmitting(false);
