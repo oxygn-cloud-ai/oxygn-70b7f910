@@ -25,7 +25,10 @@ const Auth = () => {
   }, [isAuthenticated, loading, navigate]);
 
   const handleGoogleSignIn = async () => {
-    await signInWithGoogle();
+    const result = await signInWithGoogle();
+    if (!result.error) {
+      navigate('/');
+    }
   };
 
   const handleEmailSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
