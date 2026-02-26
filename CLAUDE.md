@@ -454,7 +454,9 @@ This pattern allows centralized OAuth management through Lovable while maintaini
 
 **`ProtectedRoute` OAuth guard**: Before redirecting unauthenticated users to `/auth`, `ProtectedRoute` checks for in-progress OAuth callbacks via `isOAuthCallbackInProgress()`. This detects both implicit flow (hash contains `access_token`, `refresh_token`, or `id_token`) and authorization code flow (query params contain `code`, `state`, or `error`). If either is detected, it renders a loading spinner and waits — preventing a premature redirect that would discard the OAuth tokens.
 
-**`AuthContext` initial session race prevention**: `onAuthStateChange` skips `INITIAL_SESSION` events entirely. Initial auth state is loaded exclusively via `getSession()`, after which `initialSessionHandledRef` is set to `true`. Subsequent `SIGNED_IN` events are then treated as real logins (and trigger login tracking). This prevents a race where `INITIAL_SESSION` fires with a null user before `getSession()` resolves, causing a spurious redirect to `/auth`. The Google OAuth redirect URI points to `${window.location.origin}/auth`.
+**`AuthContext` initial session race prevention**: `onAuthStateChange` skips `INITIAL_SESSION` events entirely. Initial auth state is loaded exclusively via `getSession()`, after which `initialSessionHandledRef` is set to `true`. Subsequent `SIGNED_IN` events are then treated as real logins (and trigger login tracking). This prevents a race where `INITIAL_SESSION` fires with a null user before `getSession()` resolves, causing a spurious redirect to `/auth`. The Google OAuth redirect URI points to `window.location.origin` (the site root, not `/auth`).
+
+**OAuth error surfacing**: `AuthContext` mounts a `useEffect` that inspects `window.location.hash` on load. If the hash contains `error=`, it parses the error and `error_description` fields, displays a toast to the user, and strips the error fragment from the URL via `window.history.replaceState`. This surfaces upstream OAuth failures (e.g., provider-side rejections) that arrive as hash fragments.
 
 ### Integrations
 
